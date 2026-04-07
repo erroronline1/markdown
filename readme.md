@@ -33,6 +33,8 @@ $mycontent = $MARKDOWN->md2html($mycontent, true);
 
 The same goes for the ECMA-Script version. Instead of the TCPDF-flag, the md2html-method can be passed selected tags, while others will be ignored. This may improve contextual performance.
 ```js
+import { Markdown } from "../vendor/erroronline1/markdown/_markdown.js";
+const MARKDOWN = new Markdown();
 mycontent = MARKDOWN->md2html(mycontent, true, ['emphasis']);
 ```
 will only render bold and italic. The secureMode will still be applied.
