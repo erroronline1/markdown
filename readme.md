@@ -45,6 +45,8 @@ will only render bold and italic. The secureMode will still be applied.
 ## Composer?
 This does not really have any dependencies. Still this is installable via [Composer](https://github.com/composer/composer), just to have a standardized autoloader behaviour and everyone but me is used to that.
 
+You know what? I hate unexpected dependencies and changes like the next guy. You are free to just grab the required file from the src-directory, import it on your own and handle changes and update as you feel comfortable! There is only one file per language.
+
 ## Features
 
 * Link auto-detection, as well as tel-, ftp- and javascript-protocol
