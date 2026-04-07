@@ -5,7 +5,7 @@ supposed to match GitHub-flavour (https://github.github.com/gfm/) to a reasonabl
 
 ## But why another?
 
-This parser originates from another of my projects. This project has high concerns on privacy and data integrity, so I tried to create myself what i have been able to.
+This parser originates from [another of my projects](https://github.com/erroronline1/caro). This project has high concerns on privacy and data integrity, so I tried to create myself what I have been able to.
 
 [Parsedown](https://parsedown.org) sure has impressive stats. But also not all features are available from them.
 
@@ -37,7 +37,7 @@ mycontent = MARKDOWN->md2html(mycontent, true, ['emphasis']);
 ```
 will only render bold and italic. The secureMode will still be applied.
 
-## Composer
+## Composer?
 This does not really have any dependencies. Still this is installable via [Composer](https://github.com/composer/composer), just to have a standardized autoloader behaviour and everyone but me is used to that.
 
 ## Features
@@ -129,7 +129,7 @@ three \` or ~
 some `code with <brackets>`  
 mid*word*emphasis and __underscore emphasis__  
 some@mail.address and escaped\@mail.address  
-![an external image](http://toh.erroronline.one/caro/jackie-chan-confused-meme.jpeg)  
+![an external image](https://github.com/erroronline1/caro/raw/master/media/favicon/icon72.png)  
 123\. escaped period avoiding a list
 
 ### Nested items in lists
@@ -161,7 +161,7 @@ some@mail.address and escaped\@mail.address
 [second header](#withcustomid)
 ```
 
-[renders to](https://raw.githubusercontent.com/erroronline1/markdown/refs/heads/main/readme.md)
+[renders to](https://raw.githubusercontent.com/erroronline1/markdown/refs/heads/main/readme.md) (look at the sourcecode...)
 
 <h1 id="plain-text">Plain text (h1 header)</h1>
 <p>This is a markdown flavour for basic text styling.<br>Lines should end with two or more spaces<br>to have an intentional linebreak
@@ -190,7 +190,7 @@ start with 4 spaces &lt;code&gt;</pre>
 three ` or ~
 </pre>
 <h2 id="other-features">Other features:</h2>
-<a href="http://some.other.url" target="_blank" class="inline">http://some.other.url</a> with brackets, <a href="http://some.url?test2=2&amp;test3=a%3D%28%2Fbcdef" target="_blank" title="some title" class="inline">urlencoded link with title</a> and <a href="javascript:alert('hello there')" class="inline">javascript: protocol</a><br>some <code>code with &lt;brackets&gt;</code><br>mid<em>word</em>emphasis and <strong>underscore emphasis</strong><br><a href="mailto:some@mail.address">some@mail.address</a> and escaped@mail.address<br><img alt="an image" src="http://toh.erroronline.one/caro/jackie-chan-confused-meme.jpeg" style="float:left; max-width:100%"><br>123. escaped period avoiding a list
+<a href="http://some.other.url" target="_blank" class="inline">http://some.other.url</a> with brackets, <a href="http://some.url?test2=2&amp;test3=a%3D%28%2Fbcdef" target="_blank" title="some title" class="inline">urlencoded link with title</a> and <a href="javascript:alert('hello there')" class="inline">javascript: protocol</a><br>some <code>code with &lt;brackets&gt;</code><br>mid<em>word</em>emphasis and <strong>underscore emphasis</strong><br><a href="mailto:some@mail.address">some@mail.address</a> and escaped@mail.address<br><img alt="an image" src="https://github.com/erroronline1/caro/raw/master/media/favicon/icon72.png" style="float:left; max-width:100%"><br>123. escaped period avoiding a list
 <h2 id="nested-items-in-lists">Nested items in lists</h2>
 
 <ol><li>&nbsp;&nbsp;&nbsp;List item with<blockquote>Blockquote as item</blockquote></li><li>&nbsp;&nbsp;&nbsp;Next list item with<table><tbody><tr><th>Table</th><th>Column2</th></tr><tr><td>R1C1</td><td>R1C2</td></tr></tbody></table></li><li>&nbsp;&nbsp;&nbsp;Last item</li></ol><h2 id="nested-items-in-blockquotes">Nested items in blockquotes</h2>
@@ -202,11 +202,11 @@ three ` or ~
 Blockquote within blockquote
 </blockquote>
 <table><tbody><tr><th align="left">Tables nested</th><th align="center">within</th><th align="right">blockquotes</th></tr><tr><td align="left">are</td><td align="center">possible</td><td align="right">as well</td></tr><tr><td align="left">like</td><td align="center">aligning</td><td align="right">colums</td></tr></tbody></table></blockquote>
-<a href="#plain-text" class="inline">top header</a><br><a href="#withcustomid" class="inline">second header</a>
+<a href="#plain-text" class="inline">top header</a><br><a href="#withcustomid" class="inline">second header</a>  
+  
 
 
-
-in about 0.5 ms. Is the sourcecode tidy? Sure not, but does that matter? Also, no. Is it faster and more feature-ritch than Parsedown. Looks like it. Currently.
+in about 0.5 ms. Is the sourcecode tidy? Sure not, but does that matter? Also, no. Is it faster and more feature-rich than Parsedown. Looks like it. Currently.
 
 ## Current limitations and things feeling off
 
