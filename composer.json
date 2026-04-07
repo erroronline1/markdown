@@ -19,8 +19,8 @@
         "php": ">=8.0"
     },
     "autoload": {
-        "classmap": [
-            "Markdown"
-        ]
+        "psr-4": {
+            "erroronline1\\markdown\\": ""
+        }
     }
 }
