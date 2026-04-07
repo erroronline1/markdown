@@ -1,26 +1,20 @@
 {
     "name": "erroronline1/markdown",
-    "type": "library",
     "description": "Markdown compiler for PHP and ECMA-script.",
-    "keywords": [
-        "Markdown",
-        "CSV"
-    ],
-    "homepage": "https://github.com/erroronline1/markdown",
-    "license": "AGPL-3.0-or-later",
-    "authors": [
-        {
-            "name": "error on line 1",
-            "email": "dev@erroronline.one",
-            "role": "lead"
-        }
-    ],
+    "type": "library",
     "require": {
         "php": ">=8.0"
     },
+    "license": "AGPL-3.0-or-later",
     "autoload": {
         "psr-4": {
-            "erroronline1\\markdown\\": ""
+            "erroronline1\\Markdown\\": "src"
         }
-    }
+    },
+    "authors": [
+        {
+            "name": "erroronline1",
+            "email": "dev@erroronline.one"
+        }
+    ]
 }

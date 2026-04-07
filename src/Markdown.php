@@ -9,7 +9,7 @@
  * Third party libraries are distributed under their own terms (see [readme.md](readme.md#external-libraries))
  */
 
-namespace erroronline1;
+namespace erroronline1\Markdown;
 
 class Markdown {
 	private $_a_auto = '/(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel|javacript):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes

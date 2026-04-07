@@ -17,10 +17,13 @@ This may be of use to someone else, easy to tweak and understand at best, so I w
 
 Instatiate the Markdown class. In PHP you can choose to override semantic HTML with tags supported by [TCPDF v6.11](https://github.com/tecnickcom/tcpdf).  
 ```php
+// in case you added it with "composer require erroronline1/markdown"
+require(__DIR__ . '/../vendor/autoload.php'); // or whatever your directory structure is
+
 // normal mode
-$MARKDOWN = new erroronline1\Markdown();
+$MARKDOWN = new erroronline1\Markdown\Markdown();
 // or TCPDF-mode
-$MARKDOWN = new erroronline1\Markdown(true);
+$MARKDOWN = new erroronline1\Markdown\Markdown(true);
 ```
 
 Convert you Markdown-content with
@@ -33,7 +36,7 @@ $mycontent = $MARKDOWN->md2html($mycontent, true);
 
 The same goes for the ECMA-Script version. Instead of the TCPDF-flag, the md2html-method can be passed selected tags, while others will be ignored. This may improve contextual performance.
 ```js
-import { Markdown } from "../vendor/erroronline1/markdown/_markdown.js";
+import { Markdown } from "../vendor/erroronline1/markdown/src/Markdown.js";
 const MARKDOWN = new Markdown();
 mycontent = MARKDOWN->md2html(mycontent, true, ['emphasis']);
 ```
