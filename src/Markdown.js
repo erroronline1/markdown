@@ -15,12 +15,14 @@ export class Markdown {
 	_br = / +\n/g;
 	_code_block = /^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})/gm;
 	_code_inline = /(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/g;
+	_definition = /(^.+?\n)((?:^: .+?\n)+)/gm;
 	_emphasis = /(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/g;
 	_escape = /\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/g;
+	_footnote = /\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/g;
 	_headings = /(?:^|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_hr = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
 	_img = /(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
-	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<script.+?\/script>/g;
+	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>/gi;
 	_list_any = /(?:^ {0,3}|<blockquote>)((\*|\-|\+|\d+\.) (?:.|\n)+?)(?:^(?! |\* |\- |\+ |\d+\. )|<blockquote>|\Z)/gim;
 	_list_nested = /\n(^ {4}.+?\n)+/gm;
 	_list_ol = /(^( ){0,3}(\d+\.) (.+?(?:\n|\Z)))+/gm;
@@ -53,15 +55,17 @@ export class Markdown {
 	 * @returns {string}
 	 */
 	md2html(text = "", safeMode = false, limitTo = []) {
-		text = text.replaceAll(/\r/g, "");
+		text = text.replaceAll(/\r/g, "").replaceAll(/\t/g, "    ");
 
 		// ensure a proper processing order
 		[
-			"blockquote", // should come first to enable nesting
+			"footnote", // should come first to avoid mishandling indentation and reutilizing list and sup
+			"blockquote", // should come second to enable nesting
 			"a", // safeMode can not render anchors to avoid malicious scripts
 			"code",
 			"headings", // before hr avoiding conversion of ----
 			"hr", // before emphasis avoiding matching *** as emphasis
+			"definition",
 			"emphasis",
 			"img",
 			"task", // before list otherwise only the first occasionally nested item is converted
@@ -106,20 +110,28 @@ export class Markdown {
 				});
 		}
 
-		return content.replaceAll(this._a_auto, '<a href="$1" target="_blank" class="inline">$1</a>').replaceAll(this._a_md, (...match) => {
-			let url = "";
-			if (match[2].startsWith("javascript:")) url = match[2];
-			else if (match[2].startsWith("#")) url = match[2];
-			else {
-				let component = new URLSearchParams(match[2]);
-				if (component.keys().length) {
-					url = match[2].substring(0, match[2].indexOf("?")) + "?" + component.toString();
-				} else url = match[2];
-				url += '" target="_blank';
-			}
-			if (match[3]) url += '" title="' + match[3].substring(2, match[3].length - 1);
-			return '<a href="' + url + '" class="inline">' + match[1] + "</a>" + match[4];
-		});
+		return content
+			.replaceAll(this._a_auto, (...match) => {
+				if (match[0].startsWith("#")) return '<a href="' + match[0] + '" class="inline">' + match[0] + "</a>";
+				if (safeMode) return this.escapeHtml(match[0]);
+				return '<a href="' + match[0] + '" target="_blank" class="inline">' + match[0] + "</a>";
+			})
+			.replaceAll(this._a_md, (...match) => {
+				if (match[2].startsWith("#")) return '<a href="' + match[2] + '" class="inline">' + match[1] + "</a>";
+				if (safeMode) return this.escapeHtml(match[0]);
+				let url = "";
+				if (match[2].startsWith("javascript:")) url = match[2];
+				else if (match[2].startsWith("#")) url = match[2];
+				else {
+					let component = new URLSearchParams(match[2]);
+					if (component.keys().length) {
+						url = match[2].substring(0, match[2].indexOf("?")) + "?" + component.toString();
+					} else url = match[2];
+					url += '" target="_blank';
+				}
+				if (match[3]) url += '" title="' + match[3].substring(2, match[3].length - 1);
+				return '<a href="' + url + '" class="inline">' + match[1] + "</a>" + match[4];
+			});
 	}
 
 	br(content) {
@@ -147,6 +159,17 @@ export class Markdown {
 			});
 	}
 
+	definition(content) {
+		// create a definition block
+		return content.replaceAll(this._definition, (...match) => {
+			let definitions = [];
+			match[2].split("\n").forEach((d) => {
+				if (d.length) definitions.push(d.substring(2));
+			});
+			return "<dl><dt>" + match[1] + "</dt><dd>" + definitions.join("</dd><dd>") + "</dd></dl>";
+		});
+	}
+
 	emphasis(content) {
 		// replace all em and strong formatting
 		return content.replaceAll(this._emphasis, (...match) => {
@@ -164,6 +187,34 @@ export class Markdown {
 
 	escape(content) {
 		return content.replaceAll(this._escape, "$1");
+	}
+
+	footnote(content) {
+		// create footnotes
+		// find all footnotes
+		const footnotes = [...content.matchAll(this._footnote)];
+		let _footnotes = {},
+			key;
+		for (const value of footnotes) {
+			_footnotes[value[1]] = (value[2] || "").replaceAll(/\n/gm, "<br />").replaceAll(/^: |^ {4}/gm, "");
+		}
+		content = content.replaceAll(this._footnote, (...match) => {
+			// inline links if available as md superscript
+			if (!match[2]) {
+				if (!_footnotes[match[1]]) return "^" + match[1] + "^";
+				key = Object.keys(_footnotes).indexOf(match[1]) + 1;
+				return '^<a id="fnref:' + key + '" href="#fn:' + key + '" class="inline">' + key + "</a>^";
+			}
+			// delete actual footnote
+			return "";
+		});
+		// create actual footnotes as ordered md list and re-append to content
+		let footnote_appendix = "";
+		for (const [link, footnote] of Object.entries(_footnotes)) {
+			key = Object.keys(_footnotes).indexOf(link) + 1;
+			footnote_appendix += '1. <a id="fn:' + key + '" class="inline"></a>' + footnote.trim() + ' <a href="#fnref:' + key + '" class="inline">&crarr;</a>' + "  \n";
+		}
+		return content + (footnote_appendix ? "\n<hr>\n" + footnote_appendix + "\n" : "");
 	}
 
 	headings(content) {
@@ -225,6 +276,7 @@ export class Markdown {
 			// replace possible nested blocks in advance to list matching
 			content = this.blockquote(content, true);
 			content = this.code(content);
+			content = this.definition(content);
 			content = this.table(content);
 			content = this.pre(content);
 		}

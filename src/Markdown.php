@@ -18,14 +18,18 @@ class Markdown {
 	private $_br = '/ +\n/';
 	private $_code_block = '/^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})/m';
 		private $_code_inline = '/(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/'; // rewrite working regex101.com expression on construction for correct escaping of \
+	private $_definition = '/(^.+?\n)((?:^: .+?\n)+)/m';
 		private $_emphasis = '/(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_escape = '/\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/'; // rewrite working regex101.com expression on construction for correct escaping of \
+	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:\A|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
 	private $_hr = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
 	private $_img = '/(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
-		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<script.+?\/script>/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
+		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_list_any = '/(?:^ {0,3}|<blockquote>)((\*|\-|\+|\d+\.) (?:.|\n)+?)(?:^(?! |\* |\- |\+ |\d+\. )|<blockquote>|\Z)/mi';
+	//private $_list_any = '/((?:^ {0,3}|<blockquote>)(\*|\-|\+|\d+\.) (?:.|\n)+?)(?:\n\n|<blockquote>|\Z)/mi';
 	private $_list_nested = '/\n(^ {4}.+?\n)+/m';
+	//private $_list_line = '/(^ {0,3}(\*|\-|\+|\d+\.) )*(.+)/';
 	private $_list_ol = '/(^( ){0,3}(\d+\.) (.+?(?:\n|\Z)))+/m';
 	private $_list_ul = '/(^( ){0,3}(\*|\-|\+) (.+?(?:\n|\Z)))+/m';
 		private $_mail = '/([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -56,7 +60,7 @@ class Markdown {
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!' . preg_quote('\\', '/') . '| |\n)\1)/';
 		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/';
 		$this->_mail = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
-		$this->_inlineEvents = '/on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\1|<script.+?\/script>/mi';
+		$this->_inlineEvents = '/on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>/mi';
 		$this->_s = '/(?<!' . preg_quote('\\', '/') . ')~{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{2}/';
 		$this->_sub = '/(?<!' . preg_quote('\\', '/') . ')~{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{1}/';
 		$this->_sup = '/(?<!' . preg_quote('\\', '/') . ')\^{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{1}/';
@@ -163,14 +167,16 @@ class Markdown {
 	 * @return string as HTML
 	 */
 	public function md2html($text, $safeMode = false){
-		$text = preg_replace("/\r/", '', $text ?: '');
+		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '');
 
 		// ensure a proper processing order
-		$text = $this->blockquote($text); // should come first to enable nesting
+		$text = $this->footnote($text); // should come first to avoid mishandling indentation and reutilizing list and sup
+		$text = $this->blockquote($text); // should come second to enable nesting
 		$text = $this->a($text, $safeMode); // safeMode can not render anchors to avoid malicious scripts
 		$text = $this->code($text);
 		$text = $this->headings($text); // before hr avoiding conversion of ----
 		$text = $this->hr($text); // before emphasis avoiding matching *** as emphasis
+		$text = $this->definition($text);
 		$text = $this->emphasis($text);
 		$text = $this->img($text);
 		$text = $this->task($text); // before list otherwise only the first occasionally nested item is converted
@@ -192,28 +198,19 @@ class Markdown {
 
 	private function a($content, $safeMode = false){
 		// replace links in this order
-		if ($safeMode) {
-			$content = preg_replace_callback($this->_a_auto,
-				function($match){
-					return htmlspecialchars(($match[0]));
-				},
-				$content);
-			$content = preg_replace_callback($this->_a_md,
-				function($match){
-					return htmlspecialchars(($match[0]));
-				},
-				$content);
-			return $content;
-		}
-
-		$content = preg_replace($this->_a_auto,
-			'<a href="$1" target="_blank" class="inline">$1</a>',
+		$content = preg_replace_callback($this->_a_auto,
+			function($match) use ($safeMode){
+				if (str_starts_with('#', $match[0])) return '<a href="' . $match[0] . '" class="inline">' . $match[0] . '</a>';
+				if ($safeMode) return htmlspecialchars($match[0]);
+				return '<a href="' . $match[0] . '" target="_blank" class="inline">' . $match[0] . '</a>';
+			},
 			$content);
 		$content = preg_replace_callback($this->_a_md,
-			function($match){
+			function($match) use ($safeMode){
+				if (str_starts_with('#', $match[2])) return '<a href="' . $match[2] . '" class="inline">' . $match[1] . '</a>';
+				if ($safeMode) return htmlspecialchars($match[0]);
 				$url = '';
 				if (str_starts_with($match[2], 'javascript:')) $url = $match[2];
-				elseif (str_starts_with($match[2], '#')) $url = $match[2];
 				else {
 					$component = parse_url($match[2]);
 					if (isset($component['query'])){
@@ -280,6 +277,20 @@ class Markdown {
 		return $content;
 	}
 
+	private function definition($content){
+		// create a definition block
+		return preg_replace_callback($this->_definition, 
+			function($match) {
+				$definitions = [];
+				foreach(explode("\n", $match[2]) as $d){
+					if ($d) $definitions[] = substr($d, 2);
+				}
+				return "<dl><dt>" . $match[1] . "</dt><dd>" . implode("</dd><dd>", $definitions) . "</dd></dl>";
+			},
+			$content
+		);
+	}
+
 	private function emphasis($content){
 		// replace all em and strong formatting
 		return preg_replace_callback($this->_emphasis, 
@@ -304,6 +315,37 @@ class Markdown {
 			'$1',
 			$content
 		);
+	}
+
+	private function footnote($content){
+		// create footnotes
+		// find all footnotes
+		preg_match_all($this->_footnote, $content, $footnotes);
+		$_footnotes = [];
+		
+		foreach($footnotes[1] as $key => $value){
+			$_footnotes[strval($value)] = preg_replace(['/\n/m', '/^: |^ {4}/m'], ["<br />", ''], ($footnotes[2][$key] ?: ''));
+		}
+		$content = preg_replace_callback($this->_footnote, 
+			function($match) use ($_footnotes){
+				// inline links if available as md superscript
+				if (empty($match[2])){
+					if (empty($_footnotes[$match[1]])) return '^' . $match[1] . '^';
+					$key = array_search($match[1], array_keys($_footnotes)) + 1;
+					return '^<a id="fnref:' . $key . '" href="#fn:' . $key . '" class="inline">' . $key . '</a>^';
+				}
+				// delete actual footnote
+				return '';
+			},
+			$content
+		);
+		// create actual footnotes as ordered md list and re-append to content
+		$footnote_appendix = '';
+		foreach($_footnotes as $link => $footnote){
+			$key = array_search($link, array_keys($_footnotes)) + 1;
+			$footnote_appendix .= '1. <a id="fn:' . $key . '" class="inline"></a>' . trim($footnote) . ' <a href="#fnref:' . $key . '" class="inline">&crarr;</a>' . "  \n";
+		}
+		return $content . ($footnote_appendix ? "\n<hr>\n" . $footnote_appendix . "\n" : '');
 	}
 
 	private function headings($content){
@@ -393,6 +435,7 @@ class Markdown {
 			// replace possible nested blocks in advance to list matching
 			$content = $this->blockquote($content, true);
 			$content = $this->code($content);
+			$content = $this->definition($content);
 			$content = $this->table($content);
 			$content = $this->pre($content);
 		}
@@ -422,6 +465,47 @@ class Markdown {
 			$content
 		);
 		return $content;//preg_replace('/^\n/', '', $content);
+		/*		// detect any lists
+		// recursively replace nested lists
+		$content = preg_replace_callback($this->_list_any,
+			function($match){
+				// check lists for subelements, lists, blockquote, code, table or pre
+				return preg_replace_callback($this->_list_nested,
+					function($nested){
+						return preg_replace('/^\n/', '', $this->list(preg_replace('/^ {4}/m', '', $nested[0] . "\n"), true));  // drop leading linebreak
+					},
+					$match[0]
+				);
+			},
+			$content
+		);
+		if ($sub){
+			// replace possible nested blocks in advance to list matching
+			$content = $this->blockquote($content, true);
+			$content = $this->code($content);
+			$content = $this->definition($content);
+			$content = $this->table($content);
+			$content = $this->pre($content);
+		}
+
+		$content = preg_replace_callback($this->_list_any,
+			function($match){
+				// first list item decides for the type
+				$type = intval($match[2]) > 0 ? 'ol' : 'ul';
+				// limit line processing by applying br first
+				//$match[1] = $this->br($match[1]);
+				$entries = [];
+				foreach(explode("\n", $match[1]) as $line){
+					preg_match($this->_list_line, $line, $list_line);
+					if (!empty($list_line[2])) $entries[] = $list_line[3];
+					else $entries[count($entries) - 1] .= ' '. $list_line[3];
+				}
+				return '<' . $type . '><li>' . implode('</li><li>', $entries) . '</li></' . $type . '>';
+			},
+			$content
+		);
+		return $content;
+		*/
 	}
 
 	private function mail($content, $safeMode){
