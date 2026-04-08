@@ -26,7 +26,7 @@ $MARKDOWN = new erroronline1\Markdown\Markdown();
 $MARKDOWN = new erroronline1\Markdown\Markdown(true);
 ```
 
-Convert you Markdown-content with
+Convert your Markdown-content with
 ```php
 // normal mode
 $mycontent = $MARKDOWN->md2html($mycontent);
@@ -45,7 +45,7 @@ will only render bold and italic. The secureMode will still be applied.
 ## Composer?
 This does not really have any dependencies. Still this is installable via [Composer](https://github.com/composer/composer), just to have a standardized autoloader behaviour and everyone but me is used to that.
 
-You know what? I hate unexpected dependencies and changes like the next guy. You are free to just grab the required file from the src-directory, import it on your own and handle changes and update as you feel comfortable! There is only one file per language.
+**You know what?** I hate unexpected dependencies and changes like the next guy. You are free to just grab the required file from the src-directory, import it on your own and handle changes and update as you feel comfortable! There is only one file per language.
 
 ## Features
 
@@ -63,7 +63,6 @@ $MARKDOWN->csv2md($path, $csv = ['separator' => ';', 'enclosure' => '"', 'escape
 $MARKDOWN->md2csv($content, $csv = ['separator' => ';', 'enclosure' => '"', 'escape' => '']);
 ```
 handle this task and can take csv-formatting into account. 
-
 
 ## Output
 ```
@@ -211,7 +210,8 @@ Blockquote within blockquote
 <table><tbody><tr><th align="left">Tables nested</th><th align="center">within</th><th align="right">blockquotes</th></tr><tr><td align="left">are</td><td align="center">possible</td><td align="right">as well</td></tr><tr><td align="left">like</td><td align="center">aligning</td><td align="right">colums</td></tr></tbody></table></blockquote>
 <a href="#plain-text" class="inline">top header</a><br><a href="#withcustomid" class="inline">second header</a>  
   
-
+<br>
+<br>
 
 in about 0.5 ms. Is the sourcecode tidy? Sure not, but does that matter? Also, no. Is it faster and more feature-rich than Parsedown. Looks like it. Currently.
 
