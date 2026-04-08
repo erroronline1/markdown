@@ -17,7 +17,7 @@ export class Markdown {
 	_code_inline = /(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/g;
 	_emphasis = /(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/g;
 	_escape = /\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/g;
-	_headings = /(?:\A|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
+	_headings = /(?:^|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_hr = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
 	_img = /(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
 	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<script.+?\/script>/g;
@@ -27,7 +27,7 @@ export class Markdown {
 	_list_ul = /(^( ){0,3}(\*|\-|\+) (.+?(?:\n|\Z)))+/gm;
 	_mail = /([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/g;
 	_mark = /==(.+?)==/g;
-	_p = /(?:^$\n|\A)((?<!^<table|^<ul|^<ol|^<h\d|^<blockquote|^<pre|)(?:(\n|.)(?!table>$|ul>$|ol>$|h\d>$|blockquote>\n*$|pre>$))+?)(?:\n^$|\Z)/gim;
+	_p = /(?:^$\n)((?<!^<table|^<ul|^<ol|^<h\d|^<blockquote|^<pre|)(?:(\n|.)(?!table>$|ul>$|ol>$|h\d>$|blockquote>\n*$|pre>$))+?)(?:\n^$|\Z)/gim;
 	_pre = /^ {4}([^\*\-\d].+)+/gm;
 	_s = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
 	_sub = /(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/g;
@@ -187,8 +187,8 @@ export class Markdown {
 					existing.sort();
 					let last = existing.pop();
 					let numerate = last.match(/.+?-(\d)$/m);
-					if (numerate[1]) id += "-" + parseInt(numerate[1], 10) + 1;
-					else $id += "-1";
+					if (numerate && numerate[1]) id += "-" + parseInt(numerate[1], 10) + 1;
+					else id += "-1";
 				}
 				this._headers.push(id);
 			}
