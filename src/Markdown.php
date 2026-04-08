@@ -350,11 +350,15 @@ class Markdown {
 	
 	private function img($content){
 		// replace images
-		$content = preg_replace($this->_img,
-			'<img alt="$1" src="$2" style="float:left; max-width:100%" />',
+		if ($this->TCPDF) return preg_replace($this->_img,
+				'<img alt="$1" src="$2" style="float:left; max-width:100%" />',
+				$content
+			);
+		return preg_replace($this->_img,
+			'<img alt="$1" src="$2" class="markdown" />',
 			$content
 		);
-		return $content;
+
 	}
 
 	private function inlineEvents($content, $safeMode){

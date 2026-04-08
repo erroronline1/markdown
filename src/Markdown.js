@@ -201,7 +201,7 @@ export class Markdown {
 	}
 
 	img(content) {
-		return content.replaceAll(this._img, '<img alt="$1" src="$2" style="float:left; max-width:100%" />');
+		return content.replaceAll(this._img, '<img alt="$1" src="$2" class="markdown" />');
 	}
 
 	inlineEvents(content, safeMode = false) {
