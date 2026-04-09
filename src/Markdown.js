@@ -9,11 +9,12 @@
  */
 
 export class Markdown {
-	_a_auto = /(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel|javascript):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
+	_a_auto = /(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
 	_a_md = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))([^\)]|$)/gm; // regular md links
-	_blockquote = /(^>{1,} .*(?:\n|$|\Z))+/gm;
+	_bigger = /(?<!\\)\^{2}([^\n]+?)(?<!\\| |\n)\^{2}/g;
+	_blockquote = /(^>{1,} .*(?:\n|$))+/gm;
 	_br = / +\n/g;
-	_code_block = /^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})/gm;
+	_code_block = /^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})\n/gm;
 	_code_inline = /(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/g;
 	_definition = /(^.+?\n)((?:^: .+?\n)+)/gm;
 	_emphasis = /(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/g;
@@ -22,20 +23,19 @@ export class Markdown {
 	_headings = /(?:^|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_hr = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
 	_img = /(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
-	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>/gi;
-	_list_any = /(?:^ {0,3}|<blockquote>)((\*|\-|\+|\d+\.) (?:.|\n)+?)(?:^(?! |\* |\- |\+ |\d+\. )|<blockquote>|\Z)/gim;
-	_list_nested = /\n(^ {4}.+?\n)+/gm;
-	_list_ol = /(^( ){0,3}(\d+\.) (.+?(?:\n|\Z)))+/gm;
-	_list_ul = /(^( ){0,3}(\*|\-|\+) (.+?(?:\n|\Z)))+/gm;
+	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/gi;
+	_list_any = /((?:^ {0,3})(\*|\-|\+|\d+\.) (?:.|\n)+?)(?:\n$)/gim;
+	_list_indented = /\n(^ {4}.+?\n)+/gm;
+	_list_line = /(^ {0,3}(\*|\-|\+|\d+\.) )*(.+)/;
 	_mail = /([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/g;
 	_mark = /==(.+?)==/g;
-	_p = /(?:^$\n)((?<!^<table|^<ul|^<ol|^<h\d|^<blockquote|^<pre|)(?:(\n|.)(?!table>$|ul>$|ol>$|h\d>$|blockquote>\n*$|pre>$))+?)(?:\n^$|\Z)/gim;
+	_p = /(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/gim;
 	_pre = /^ {4}([^\*\-\d].+)+/gm;
 	_s = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
 	_sub = /(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/g;
 	_sup = /(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/g;
 	_table = /^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n(((?:\|.+?){1,}\|(?:\n|$))+)/gm;
-	_task = /\[(\s*x{0,1}\s*)\] (.+?(?:\n|\Z))/gim;
+	_task = /\[(\s*x{0,1}\s*)\] (.+?(?:\n))/gim;
 
 	_headers = [];
 	_headerchars = /[\w\d\-\sÄÖÜäöüßêÁáÉéÍíÓóÚúÀàÈèÌìÒòÙù]+/;
@@ -74,6 +74,7 @@ export class Markdown {
 			"mark",
 			"pre",
 			"s",
+			"bigger", // before sup for using the same character twice
 			"sub",
 			"sup",
 			"table",
@@ -98,23 +99,18 @@ export class Markdown {
 		});
 	}
 
+	debug(...content) {
+		console.log(...content);
+	}
+
 	a(content, safeMode = false) {
 		// replace links in this order
-		if (safeMode) {
-			return content
-				.replaceAll(this._a_auto, (...match) => {
-					return this.escapeHtml(match[0]);
-				})
-				.replaceAll(this._a_md, (...match) => {
-					return this.escapeHtml(match[0]);
-				});
-		}
-
 		return content
 			.replaceAll(this._a_auto, (...match) => {
 				if (match[0].startsWith("#")) return '<a href="' + match[0] + '" class="inline">' + match[0] + "</a>";
 				if (safeMode) return this.escapeHtml(match[0]);
-				return '<a href="' + match[0] + '" target="_blank" class="inline">' + match[0] + "</a>";
+				return '<a href="' + match[0] + '" class="inline">' + match[0] + "</a>";
+				//return '<a href="' + match[0] + '" target="_blank" class="inline">' + match[0] + "</a>";
 			})
 			.replaceAll(this._a_md, (...match) => {
 				if (match[2].startsWith("#")) return '<a href="' + match[2] + '" class="inline">' + match[1] + "</a>";
@@ -127,11 +123,25 @@ export class Markdown {
 					if (component.keys().length) {
 						url = match[2].substring(0, match[2].indexOf("?")) + "?" + component.toString();
 					} else url = match[2];
-					url += '" target="_blank';
+					//url += '" target="_blank';
 				}
 				if (match[3]) url += '" title="' + match[3].substring(2, match[3].length - 1);
 				return '<a href="' + url + '" class="inline">' + match[1] + "</a>" + match[4];
 			});
+	}
+
+	bigger(content) {
+		// make font size bigger - CUSTOM MARKDOWN
+		return content.replaceAll(this._bigger, '<span class="markdown" style="font-size:larger;">$1</span>');
+	}
+
+	blockquote(content, sub = false) {
+		// replace blockquotes recursively
+		return content.replaceAll(this._blockquote, (...match) => {
+			match[0] = this.blockquote(match[0].replaceAll(/^\n|\n$/g, "").replaceAll(/^> {0,1}|^ /gm, ""), sub); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
+			if (sub) return "<blockquote>" + match[0] + "</blockquote>"; // fence with tag, add linebreak for pattern recognition
+			return "<blockquote>\n" + match[0] + "\n</blockquote>"; // fence with tag, add linebreak for pattern recognition
+		});
 	}
 
 	br(content) {
@@ -139,19 +149,10 @@ export class Markdown {
 		return content.replaceAll(this._br, "<br />");
 	}
 
-	blockquote(content, sub = false) {
-		// replace blockquotes recursively
-		return content.replaceAll(this._blockquote, (...match) => {
-			match[0] = this.blockquote(match[0].replaceAll(/^\n|\n$/g, "").replaceAll(/^> {0,1}|^ /gm, "")); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
-			if (!sub) return "<blockquote>\n" + match[0] + "\n</blockquote>"; // fence with tag, add linebreak for pattern recognition
-			return "<blockquote>" + match[0] + "</blockquote>"; // fence with tag, add linebreak for pattern recognition
-		});
-	}
-
-	code(content) {
+	code(content, sub = false) {
 		return content
 			.replaceAll(this._code_block, (...match) => {
-				if (match[1] == match[3]) return "<pre>" + this.escapeHtml(match[2]) + "</pre>";
+				if (match[1] == match[3]) return "<pre>" + this.escapeHtml(match[2].replaceAll(/^\n|\n$/gm, "")) + "</pre>" + (sub ? "" : "\n");
 				return match[0];
 			})
 			.replaceAll(this._code_inline, (...match) => {
@@ -243,7 +244,7 @@ export class Markdown {
 				}
 				this._headers.push(id);
 			}
-			return "<h" + size + ' id="' + id + '">' + heading + "</h" + size + ">";
+			return "\n<h" + size + ' id="' + id + '">' + heading + "</h" + size + ">";
 		});
 	}
 
@@ -265,41 +266,34 @@ export class Markdown {
 	}
 
 	list(content, sub = false) {
-		content = content.replaceAll(this._list_any, (...list) => {
+		content = content.replaceAll(this._list_any, (...match) => {
 			// check lists for subelements, lists, blockquote, code, table or pre
-			return list[1].replaceAll(this._list_nested, (...nested) => {
-				return this.list(nested[0].replaceAll(/^ {4}/gm, "") + "\n", true).replaceAll(/^\n/g, ""); // drop leading linebreak, but add one to end for pattern recognition
+			return match[0].replaceAll(this._list_indented, (...indented) => {
+				return this.list((indented[0] + "\n").replaceAll(/^ {4}/gm, ""), true).replaceAll(/^\n/g, ""); // drop leading linebreak, but add one to end for pattern recognition
 			});
 		});
-
 		if (sub) {
 			// replace possible nested blocks in advance to list matching
 			content = this.blockquote(content, true);
-			content = this.code(content);
+			content = this.code(content, true);
 			content = this.definition(content);
 			content = this.table(content);
 			content = this.pre(content);
 		}
 
-		//replace unordered lists
-		content = content.replaceAll(this._list_ul, (...match) => {
-			let output = "<ul>";
-			match[0].split("\n").forEach((item) => {
-				if (item) output += "<li>" + item.replaceAll(/^ *[\*\+\-] /gm, "") + "</li>";
-			});
-			output += "</ul>";
-			return output;
+		content = content.replaceAll(this._list_any, (...match) => {
+			// first list item decides for the type
+			let type = parseInt(match[2]) > 0 ? "ol" : "ul",
+				entries = [],
+				list_line;
+			for (const line of match[1].split("\n")) {
+				list_line = line.match(this._list_line);
+				if (list_line[2]) entries.push(list_line[3] + "\n");
+				else entries[entries.length - 1] += " " + list_line[3] + "\n";
+			}
+			return "<" + type + "><li>" + entries.join("</li><li>") + "</li></" + type + ">";
 		});
-		// replace ordered lists
-		content = content.replaceAll(this._list_ol, (...match) => {
-			let output = "<ol>";
-			match[0].split("\n").forEach((item) => {
-				if (item) output += "<li>" + "&nbsp;".repeat(3) + item.replaceAll(/^ *\d+\. /gm, "") + "</li>"; // &nbsp; may look a bit weird on screen but improves pdfs
-			});
-			output += "</ol>";
-			return output;
-		});
-		return content; //preg_replace('/^\n/', '', $content);
+		return content;
 	}
 
 	mail(content, safeMode = false) {
