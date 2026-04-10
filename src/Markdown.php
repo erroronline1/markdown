@@ -204,15 +204,15 @@ class Markdown {
 		// replace links in this order
 		$content = preg_replace_callback($this->_a_auto,
 			function($match) use ($safeMode){
-				if (str_starts_with('#', $match[0])) return '<a href="' . $match[0] . '" class="eol1_md">' . $match[0] . '</a>';
+				if (str_starts_with($match[1],'#')) return '<a href="' . $match[1] . '" class="eol1_md">' . htmlspecialchars($match[1]) . '</a>';
 				if ($safeMode) return htmlspecialchars($match[0]);
-				return '<a href="' . $match[0] . '" class="eol1_md">' . $match[0] . '</a>';
+				return '<a href="' . $match[1] . '" class="eol1_md">' . htmlspecialchars($match[1]) . '</a>';
 				//return '<a href="' . $match[0] . '" target="_blank" class="eol1_md">' . $match[0] . '</a>';
 			},
 			$content);
 		$content = preg_replace_callback($this->_a_md,
 			function($match) use ($safeMode){
-				if (str_starts_with('#', $match[2])) return '<a href="' . $match[2] . '" class="eol1_md">' . $match[1] . '</a>';
+				if (str_starts_with($match[2], '#')) return '<a href="' . $match[2] . '" class="eol1_md">' . htmlspecialchars($match[1]) . '</a>';
 				if ($safeMode) return htmlspecialchars($match[0]);
 				$url = '';
 				if (str_starts_with($match[2], 'javascript:')) $url = $match[2];
@@ -247,7 +247,7 @@ class Markdown {
 			function($match) use ($sub){
 				$match[0] = $this->blockquote(preg_replace(['/^\n|\n$/', '/^> {0,1}|^ /m'], '', $match[0]), $sub); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
 				if ($sub) return '<blockquote class="eol1_md">' . $match[0] . '</blockquote>'; // fence with tag
-				return "<blockquote class=\"md\">\n" . $match[0] . "\n</blockquote>\n"; // fence with tag, add linebreak for pattern recognition
+				return "<blockquote class=\"eol1_md\">\n" . $match[0] . "\n</blockquote>\n"; // fence with tag, add linebreak for pattern recognition
 			},
 			$content
 		);

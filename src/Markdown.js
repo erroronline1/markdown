@@ -107,13 +107,13 @@ export class Markdown {
 		// replace links in this order
 		return content
 			.replaceAll(this._a_auto, (...match) => {
-				if (match[0].startsWith("#")) return '<a href="' + match[0] + '" class="eol1_md">' + match[0] + "</a>";
+				if (match[1].startsWith("#")) return '<a href="' + match[1] + '" class="eol1_md">' + match[1] + "</a>";
 				if (safeMode) return this.escapeHtml(match[0]);
-				return '<a href="' + match[0] + '" class="eol1_md">' + match[0] + "</a>";
+				return '<a href="' + match[1] + '" class="eol1_md">' + this.escapeHtml(match[1]) + "</a>";
 				//return '<a href="' + match[0] + '" target="_blank" class="eol1_md">' + match[0] + "</a>";
 			})
 			.replaceAll(this._a_md, (...match) => {
-				if (match[2].startsWith("#")) return '<a href="' + match[2] + '" class="eol1_md">' + match[1] + "</a>";
+				if (match[2].startsWith("#")) return '<a href="' + match[2] + '" class="eol1_md">' + this.escapeHtml(match[1]) + "</a>";
 				if (safeMode) return this.escapeHtml(match[0]);
 				let url = "";
 				if (match[2].startsWith("javascript:")) url = match[2];
@@ -140,7 +140,7 @@ export class Markdown {
 		return content.replaceAll(this._blockquote, (...match) => {
 			match[0] = this.blockquote(match[0].replaceAll(/^\n|\n$/g, "").replaceAll(/^> {0,1}|^ /gm, ""), sub); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
 			if (sub) return '<blockquote class="eol1_md">' + match[0] + "</blockquote>"; // fence with tag, add linebreak for pattern recognition
-			return "<blockquote class=\"md\">\n" + match[0] + "\n</blockquote>"; // fence with tag, add linebreak for pattern recognition
+			return "<blockquote class=\"eol1_md\">\n" + match[0] + "\n</blockquote>"; // fence with tag, add linebreak for pattern recognition
 		});
 	}
 
