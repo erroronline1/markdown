@@ -1,5 +1,6 @@
 <?php
-$sample  = <<<'END'
+
+$defaultSample  = <<<'END'
 # Plain text (h1 header)
 (ATX)
 
@@ -138,44 +139,95 @@ some@mail.address and escaped\@mail.address
 <div onclick="alert('you clicked!')">clickable div</div>
 END;
 
-require_once('../vendor/erroronline1/markdown/src/Markdown.php');
+require_once('./src/Markdown.php');
 
-		$start = microtime(true);
-		$markdown = new \erroronline1\Markdown\Markdown();
-		$PHPMarkdown = $markdown->md2html($sample);
-		$end = microtime(true);
+$sample = $_POST['input'] ?? $defaultSample;
+$safeMode = '';
+switch ($_SERVER['REQUEST_METHOD']) {
+	case 'POST':
+		$safeMode = !empty($_POST['safeMode']) ? 'checked' : '';
+		break;
+	default:
+		$safeMode = 'checked';
+		break;
+}
+
+$start = microtime(true);
+$markdown = new \erroronline1\Markdown\Markdown();
+$PHPMarkdown = $markdown->md2html($sample, boolval($safeMode));
+$end = microtime(true);
 ?>
+
 <html>
-	<style>
+<style>
+	textarea {
+		width: 30vw;
+		height: 85vh;
+		border-color: rgba(0, 0, 0, .5);
+	}
+
+	td:not([class]) {
+		vertical-align: top;
+		padding: 2em;
+		border-right: 1px solid rgba(0, 0, 0, .8);
+	}
+
+	table.eol1_md {
+
+		th,
 		td {
-			vertical-align: top;
+			border: 1px solid gray;
 		}
-	</style>
-	<body>
-		<table>
-			<tr>
-				<th>
-					PHP (<?= ($end - $start)*1000; ?> ms)
-				</th>
-				<th id="scriptheader">
-					ECMA-Script
-				</th>
-			</tr>
-			<tr>
-				<td>
+
+		th {
+			background-color: gray;
+		}
+	}
+
+	blockquote.eol1_md {
+		border-left: .2em solid gray;
+		padding-left: .5em;
+	}
+</style>
+
+<body>
+	<table>
+		<tr>
+			<th>Input</th>
+			<th>
+				PHP (<?= round(($end - $start) * 1000, 2); ?> ms)
+			</th>
+			<th id="scriptheader">
+				ECMA-Script
+			</th>
+		</tr>
+		<tr>
+			<td>
+				<form method="post">
+					<textarea name="input"><?= $sample; ?></textarea><br />
+					<label><input type="checkbox" name="safeMode" <?= $safeMode; ?> /> safeMode</label><br />
+					<input type="submit" value="submit" />
+				</form>
+				minimal styling on output for comprehension only. most is default brwoser behaviour.
+			</td>
+			<td>
 				<?= $PHPMarkdown; ?>
-				</td>
-				<td id="scriptcolumn">
-				</td>
-			</tr>
-		</table>
-	</body>
+			</td>
+			<td id="scriptcolumn">
+			</td>
+		</tr>
+	</table>
+</body>
 
 <script type="module">
-	import { Markdown } from "../vendor/erroronline1/markdown/src/Markdown.js";
+	import {
+		Markdown
+	} from "./src/Markdown.js";
 	const MARKDOWN = new Markdown();
 	const start = performance.now();
-	document.getElementById("scriptcolumn").innerHTML = MARKDOWN.md2html(<?= json_encode($sample, JSON_UNESCAPED_UNICODE); ?>);
-	document.getElementById("scriptheader").innerHTML += " (" + (performance.now()-start) + " ms)";
+	const content = MARKDOWN.md2html(<?= json_encode($sample, JSON_UNESCAPED_UNICODE); ?>, <?= boolval($safeMode) ?>);
+	document.getElementById("scriptheader").innerHTML += " (" + (performance.now() - start) + " ms)";
+	document.getElementById("scriptcolumn").innerHTML = content;
 </script>
+
 </html>
