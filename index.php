@@ -175,8 +175,9 @@ $end = microtime(true);
 	table.eol1_md {
 
 		th,
-		td {
+		td:not([class]) {
 			border: 1px solid gray;
+			padding:1em !important;
 		}
 
 		th {
@@ -185,6 +186,7 @@ $end = microtime(true);
 	}
 
 	blockquote.eol1_md {
+		margin: auto;
 		border-left: .2em solid gray;
 		padding-left: .5em;
 	}
@@ -208,7 +210,8 @@ $end = microtime(true);
 					<label><input type="checkbox" name="safeMode" <?= $safeMode; ?> /> safeMode</label><br />
 					<input type="submit" value="submit" />
 				</form>
-				minimal styling on output for comprehension only. most is default brwoser behaviour.
+				minimal styling on output for comprehension only. most is default browser behaviour.<br>
+				<a href="https://github.com/erroronline1/markdown">sourcecode</a>
 			</td>
 			<td>
 				<?= $PHPMarkdown; ?>

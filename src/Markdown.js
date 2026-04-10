@@ -89,8 +89,9 @@ export class Markdown {
 		});
 
 		text = this.escape(text); // should come after other stylings have been applied
-
-		return text;
+		text = text.replaceAll(/>\n+</gm, '><').replaceAll(/\n *<\//gm, '</'); // delete empty lines betwen tags
+		
+		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" + text;
 	}
 
 	escapeHtml(content) {
@@ -269,7 +270,7 @@ export class Markdown {
 		content = content.replaceAll(this._list_any, (...match) => {
 			// check lists for subelements, lists, blockquote, code, table or pre
 			return match[0].replaceAll(this._list_indented, (...indented) => {
-				return this.list((indented[0] + "\n").replaceAll(/^ {4}/gm, ""), true).replaceAll(/^\n/g, ""); // drop leading linebreak, but add one to end for pattern recognition
+				return this.list((indented[0] + "\n").replaceAll(/^ {4}/gm, ""), true).replaceAll(/^\n/g, ""); // drop leading linebreak and indentation, but add one to end for pattern recognition
 			});
 		});
 		if (sub) {
@@ -288,8 +289,8 @@ export class Markdown {
 				list_line;
 			for (const line of match[1].split("\n")) {
 				list_line = line.match(this._list_line);
-				if (list_line[2]) entries.push(list_line[3] + "\n");
-				else entries[entries.length - 1] += " " + list_line[3] + "\n";
+				if (list_line[2]) entries.push(list_line[3] + "\n"); // add trailing linebreak to preserve pattern recognition
+				else entries[entries.length - 1] += " " + list_line[3] + "\n"; // add trailing linebreak to preserve pattern recognition
 			}
 			return "<" + type + ' class="eol1_md"><li>' + entries.join("</li><li>") + "</li></" + type + ">";
 		});

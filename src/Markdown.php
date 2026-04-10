@@ -191,9 +191,12 @@ class Markdown {
 		$text = $this->p($text); // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
 		$text = $this->br($text);
 		$text = $this->inlineEvents($text, $safeMode); // safeMode can not render inline events and scripts to avoid malicious inserts
+
 		$text = $this->escape($text); // should come after other stylings have been applied
 
-		return $text;
+		$text = preg_replace(['/>\n+</', '/\n *<\//'], ['><', '</'], $text); // delete empty lines betwen tags
+
+		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $text;
 	}
 
 	private function debug(...$content){
@@ -460,8 +463,8 @@ class Markdown {
 				$entries = [];
 				foreach(explode("\n", $match[1]) as $line){
 					preg_match($this->_list_line, $line, $list_line);
-					if (!empty($list_line[2])) $entries[] = $list_line[3] . "\n";
-					else $entries[count($entries) - 1] .= ' '. $list_line[3] . "\n";
+					if (!empty($list_line[2])) $entries[] = $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
+					else $entries[count($entries) - 1] .= ' '. $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
 				}
 				return '<' . $type . ' class="eol1_md"><li>' . implode('</li><li>', $entries) . '</li></' . $type . '>';
 			},
