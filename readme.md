@@ -48,7 +48,7 @@ $MARKDOWN->md2csv($content, $csv = ['separator' => ';', 'enclosure' => '"', 'esc
 handle this task and can take csv-formatting into account. 
 
 ### Sample test
-See the result from both parsers by loading the provided test.php-file in your browser. You may have to adapt the path. Play with the available options.
+See the result from both parsers by loading the provided index.php-file in your browser. Play with the available options.
 
 ## Installation
 You know what? I hate unexpected dependencies and changes like the next guy. You are free to **just grab the required file** from the src-directory, import it on your own and handle changes and update as you feel comfortable! There is only one file per language. I'm not the boss of you. Just respect the AGPL license.
@@ -322,7 +322,7 @@ Here's a simple footnote<sup><a id="fnref:1" href="#fn:1" class="eol1_md">1</a><
 
 <br>
 
-in about 0.5-2 ms in PHP and 4-6 ms in ECMA-Script (including insertion). Is the sourcecode tidy? Sure not, but does that matter? Also, no. It's about visuals anyway, isn't it?
+in about 0.5-2 ms in PHP (depending on the server) and 2-4 ms in ECMA-Script. Is the sourcecode tidy? Sure not, but does that matter? Also, no. It's about visuals anyway, isn't it?
 
 ## Current limitations and things feeling off
 
