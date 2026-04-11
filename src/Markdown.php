@@ -167,7 +167,7 @@ class Markdown {
 	 * @return string as HTML
 	 */
 	public function md2html($text, $safeMode = false){
-		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '');
+		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
 
 		// ensure a proper processing order
 		$text = $this->footnote($text); // should come first to avoid mishandling indentation and reutilizing list and sup
@@ -207,7 +207,7 @@ class Markdown {
 		// replace links in this order
 		return preg_replace_callback($this->_tidy_nl,
 			function($match){
-				return preg_replace('/[\n\s]+/', '', $match[0]);
+				return preg_replace('/[\n\s]+/', ' ', $match[0]);
 			},
 			$content);
 	}
@@ -473,7 +473,8 @@ class Markdown {
 				foreach(explode("\n", $match[1]) as $line){
 					preg_match($this->_list_line, $line, $list_line);
 					if ($list_line){
-						if (empty($entries[count($entries) - 1]) || !empty($list_line[2])) $entries[] = $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
+						// add some whitespace fpr TCPDF because ordered lists are a bit misaligned, and I couldn't fix that with styling
+						if (empty($entries[count($entries) - 1]) || !empty($list_line[2])) $entries[] = ($this->TCPDF && $type === 'ol' ? str_repeat('&nbsp;', 3) : '') .$list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
 						else $entries[count($entries) - 1] .= ' '. $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
 					}
 				}
@@ -575,7 +576,7 @@ class Markdown {
 					elseif ($align[2]) $alignment[] = ' align="right"';
 					else $alignment[] = '';
 				}
-				$output = '<table class="eol1_md">';
+				$table = [];
 				foreach($rows as $rowindex => $row){
 					if (!$row) continue;
 					$columns = array_filter(preg_split('/(?<!' . preg_quote('\\', '/'). ')\|/', $row), fn($c) => boolval(trim($c)));
@@ -583,12 +584,14 @@ class Markdown {
 						case 1:
 							break;
 						case 0:
-							$output .= '<tr>' . implode('', array_map(fn($i, $column) => '<th' . ($alignment[$i] ?? '') . '>' . trim($column) . '</th>', array_keys($columns), $columns)) . '</tr>';
+							$table[] = '<tr' . ($this->TCPDF && !(count($table) % 2) ? ' class="eol1_odd"' : '') . '>' . implode('', array_map(fn($i, $column) => '<th' . ($alignment[$i] ?? '') . '>' . trim($column) . '</th>', array_keys($columns), $columns)) . '</tr>';
 							break;
 						default:
-							$output .= '<tr>' . implode('', array_map(fn($i, $column) => '<td' . ($alignment[$i] ?? '') . '>' . trim($column) . '</td>', array_keys($columns), $columns)) . '</tr>';
+							$table[] = '<tr' . ($this->TCPDF && !(count($table) % 2) ? ' class="eol1_odd"' : '') . '>' . implode('', array_map(fn($i, $column) => '<td' . ($alignment[$i] ?? '') . '>' . trim($column) . '</td>', array_keys($columns), $columns)) . '</tr>';
 					}
 				}
+				$output = ($this->TCPDF ? '<br />' : '') . '<table class="eol1_md">';
+				$output .= implode('', $table);
 				$output .= '</table>';
 				return $output;
 			},
