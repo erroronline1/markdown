@@ -14,7 +14,6 @@ namespace erroronline1\Markdown;
 class Markdown {
 	private $_a_auto = '/(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
 		private $_a_md = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))([^\)]|$)/m'; // regular md links
-		private $_bigger = '/(?<!\\)\^{2}([^\n]+?)(?<!\\| |\n)\^{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,} .*(?:\n|$|\Z))+/m';
 	private $_br = '/ +\n/';
 	private $_code_block = '/^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})\n/m';
@@ -27,6 +26,7 @@ class Markdown {
 	private $_hr = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
 	private $_img = '/(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
 		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
+		private $_larger = '/(?<!\\)\^{2}([^\n]+?)(?<!\\| |\n)\^{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_list_any = '/((?:^ {0,3})(\*|\-|\+|\d+\.) (?:.|\n)+?)(?:\n$|\Z)/mi';
 	private $_list_indented = '/\n(^ {4}.+?\n)+/m';
 	private $_list_line = '/(^ {0,3}(\*|\-|\+|\d+\.) )*(.+)/';
@@ -39,6 +39,7 @@ class Markdown {
 		private $_sup = '/(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/';
 	private $_table = '/^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n(((?:\|.+?){1,}\|(?:\n|$))+)/m';
 	private $_task = '/\[(\s*x{0,1}\s*)\] (.+?(?:\n|\Z))/mi';
+	private $_tidy_nl = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
 
 	private $_headers = [];
 	private $_headerchars = '/[\w\d\-\sÄÖÜäöüßêÁáÉéÍíÓóÚúÀàÈèÌìÒòÙù]+/';
@@ -54,12 +55,12 @@ class Markdown {
 	{
 		// rewrite working regex101.com expression on construction for correct escaping of \
 		$this->_a_md = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\))([^\)]|$)/m'; // regular md links
-		$this->_bigger = '/(?<!' . preg_quote('\\', '/') . ')\^{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{2}/';
 		$this->_code_inline = '/(?<!' . preg_quote('\\', '/') . ')(`{1,2})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\1/';
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!' . preg_quote('\\', '/') . '| |\n)\1)/';
 		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/';
 		$this->_mail = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
 		$this->_inlineEvents = '/on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|(\'|")javascript:.+?(?<!' . preg_quote('\\', '/') . ')\3/mi';
+		$this->_larger = '/(?<!' . preg_quote('\\', '/') . ')\^{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{2}/';
 		$this->_s = '/(?<!' . preg_quote('\\', '/') . ')~{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{2}/';
 		$this->_sub = '/(?<!' . preg_quote('\\', '/') . ')~{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{1}/';
 		$this->_sup = '/(?<!' . preg_quote('\\', '/') . ')\^{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{1}/';
@@ -184,7 +185,7 @@ class Markdown {
 		$text = $this->mark($text);
 		$text = $this->pre($text);
 		$text = $this->s($text);
-		$text = $this->bigger($text); // before sup for using the same character twice
+		$text = $this->larger($text); // before sup for using the same character twice
 		$text = $this->sub($text);
 		$text = $this->sup($text);
 		$text = $this->table($text);
@@ -193,14 +194,22 @@ class Markdown {
 		$text = $this->inlineEvents($text, $safeMode); // safeMode can not render inline events and scripts to avoid malicious inserts
 
 		$text = $this->escape($text); // should come after other stylings have been applied
-
-		$text = preg_replace(['/>\n+</', '/\n *<\//'], ['><', '</'], $text); // delete empty lines betwen tags
+		$text = $this->tidy_nl($text);
 
 		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $text;
 	}
 
 	private function debug(...$content){
 		echo "<pre>"; var_dump(...$content); echo "</pre>";
+	}
+
+	private function tidy_nl($content){
+		// replace links in this order
+		return preg_replace_callback($this->_tidy_nl,
+			function($match){
+				return preg_replace('/[\n\s]+/', '', $match[0]);
+			},
+			$content);
 	}
 
 	private function a($content, $safeMode = false){
@@ -234,14 +243,6 @@ class Markdown {
 			$content
 		);
 		return $content;
-	}
-
-	private function bigger($content){
-		// make font size bigger - CUSTOM MARKDOWN
-		return preg_replace($this->_bigger,
-			'<span class="eol1_md" style="font-size:larger;">$1</span>',
-			$content
-		);
 	}
 
 	private function blockquote($content, $sub = false){
@@ -430,6 +431,14 @@ class Markdown {
 				$content);
 		}
 		return $content;
+	}
+
+	private function larger($content){
+		// make font size larger - CUSTOM MARKDOWN
+		return preg_replace($this->_larger,
+			'<span class="eol1_md" style="font-size:larger;">$1</span>',
+			$content
+		);
 	}
 
 	private function list($content, $sub = false){
