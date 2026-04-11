@@ -56,7 +56,7 @@ export class Markdown {
 	 * @returns {string}
 	 */
 	md2html(text = "", safeMode = false, limitTo = []) {
-		text = text.replaceAll(/\r/g, "").replaceAll(/\t/g, "    ");
+		text = text.replaceAll(/\r/g, "").replaceAll(/\t/g, "    ") + "\n"; // add a new line for improved pattern matching by default
 
 		// ensure a proper processing order
 		[
@@ -108,7 +108,7 @@ export class Markdown {
 	tidy_nl(content) {
 		// strip new lines near tags to compress result
 		return content.replaceAll(this._tidy_nl, (...match) => {
-			return match[0].replaceAll(/[\n\s]+/g, "");
+			return match[0].replaceAll(/[\n\s]+/g, " ");
 		});
 	}
 
