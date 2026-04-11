@@ -472,8 +472,10 @@ class Markdown {
 				$entries = [];
 				foreach(explode("\n", $match[1]) as $line){
 					preg_match($this->_list_line, $line, $list_line);
-					if (!empty($list_line[2])) $entries[] = $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
-					else $entries[count($entries) - 1] .= ' '. $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
+					if ($list_line){
+						if (empty($entries[count($entries) - 1]) || !empty($list_line[2])) $entries[] = $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
+						else $entries[count($entries) - 1] .= ' '. $list_line[3] . "\n"; // add trailing linebreak to preserve pattern recognition
+					}
 				}
 				return '<' . $type . ' class="eol1_md"><li>' . implode('</li><li>', $entries) . '</li></' . $type . '>';
 			},

@@ -297,9 +297,10 @@ export class Markdown {
 				list_line;
 			for (const line of match[1].split("\n")) {
 				list_line = line.match(this._list_line);
-				if (list_line[2])
-					entries.push(list_line[3] + "\n"); // add trailing linebreak to preserve pattern recognition
-				else entries[entries.length - 1] += " " + list_line[3] + "\n"; // add trailing linebreak to preserve pattern recognition
+				if (list_line){
+					if (!entries[entries.length - 1] || list_line[2]) entries.push(list_line[3] + "\n"); // add trailing linebreak to preserve pattern recognition
+					else entries[entries.length - 1] += " " + list_line[3] + "\n"; // add trailing linebreak to preserve pattern recognition
+				}
 			}
 			return "<" + type + ' class="eol1_md"><li>' + entries.join("</li><li>") + "</li></" + type + ">";
 		});
