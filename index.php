@@ -139,6 +139,35 @@ some@mail.address and escaped\@mail.address
 <div onclick="alert('you clicked!')">clickable div</div>
 END;
 
+$methods = [
+	"footnote", // should come first to avoid mishandling indentation and reutilizing list and sup
+	"blockquote", // should come second to enable nesting
+	"a", // safeMode can not render anchors to avoid malicious scripts
+	"code",
+	"headings", // before hr avoiding conversion of ----
+	"hr", // before emphasis avoiding matching *** as emphasis
+	"definition",
+	"emphasis",
+	"img",
+	"task", // before list otherwise only the first occasionally nested item is converted
+	"list",
+	"mail", // safeMode can not render anchors to avoid malicious scripts
+	"mark",
+	"pre",
+	"s",
+	"larger", // before sup for using the same character twice
+	"sub",
+	"sup",
+	"table",
+	"p", // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
+	"br",
+	"inlineEvents", // safeMode can not render inline events and scripts to avoid malicious inserts
+];
+
+$selectedMethods = [];
+foreach($methods as $method){
+	if ($_POST[$method] ?? false) $selectedMethods[] = $method;
+}
 require_once('./src/Markdown.php');
 
 $sample = $_POST['input'] ?? $defaultSample;
@@ -154,15 +183,21 @@ switch ($_SERVER['REQUEST_METHOD']) {
 
 $start = microtime(true);
 $markdown = new \erroronline1\Markdown\Markdown();
-$PHPMarkdown = $markdown->md2html($sample, boolval($safeMode));
+$PHPMarkdown = $markdown->md2html($sample, boolval($safeMode), $selectedMethods);
 $end = microtime(true);
+
+sort($methods);
 ?>
 
 <html>
 <style>
+	label {
+		display:inline-block;
+		min-width: 30%;
+	}
 	textarea {
-		width: 30vw;
-		height: 85vh;
+		width: 100%;
+		height: 70vh;
 		border-color: rgba(0, 0, 0, .5);
 	}
 
@@ -170,6 +205,12 @@ $end = microtime(true);
 		vertical-align: top;
 		padding: 2em;
 		border-right: 1px solid rgba(0, 0, 0, .8);
+	}
+
+	body>table{
+		tr, td {
+			width:32%;
+		}
 	}
 
 	table.eol1_md {
@@ -208,6 +249,11 @@ $end = microtime(true);
 				<form method="post">
 					<textarea name="input"><?= $sample; ?></textarea><br />
 					<label><input type="checkbox" name="safeMode" <?= $safeMode; ?> /> safeMode</label><br />
+					<?php
+						foreach ($methods as $method) {
+							echo '<label><input type="checkbox" name="' . $method. '" ' . (in_array($method, $selectedMethods) ? 'checked': '') . ' /> ' . $method. '</label>';
+						}
+					?><br />
 					<input type="submit" value="submit" />
 				</form>
 				minimal styling on output for comprehension only. most is default browser behaviour.<br>
@@ -228,8 +274,8 @@ $end = microtime(true);
 	} from "./src/Markdown.js";
 	const MARKDOWN = new Markdown();
 	const start = performance.now();
-	const content = MARKDOWN.md2html(<?= json_encode($sample, JSON_UNESCAPED_UNICODE); ?>, <?= boolval($safeMode) ?>);
-	document.getElementById("scriptheader").innerHTML += " (" + (performance.now() - start) + " ms)";
+	const content = MARKDOWN.md2html(<?= json_encode($sample, JSON_UNESCAPED_UNICODE); ?>, <?= boolval($safeMode) ? 'true' : 'false'; ?>, [<?= implode(', ', array_map(fn($v) => '"' . $v . '"', $selectedMethods)); ?>]);
+	document.getElementById("scriptheader").innerHTML += " (" + (performance.now() - start).toFixed(2) + " ms)";
 	document.getElementById("scriptcolumn").innerHTML = content;
 </script>
 
