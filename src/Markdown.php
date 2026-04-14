@@ -164,34 +164,41 @@ class Markdown {
 	/**
 	 * @param string $text Markdown styled
 	 * @param bool $safeMode returns anchors as specialchars
+	 * @param array $limitTo process only given methods, empty for all
 	 * @return string as HTML
 	 */
-	public function md2html($text, $safeMode = false){
+	public function md2html($text, $safeMode = false, $limitTo = []){
 		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
 
-		// ensure a proper processing order
-		$text = $this->footnote($text); // should come first to avoid mishandling indentation and reutilizing list and sup
-		$text = $this->blockquote($text); // should come second to enable nesting
-		$text = $this->a($text, $safeMode); // safeMode can not render anchors to avoid malicious scripts
-		$text = $this->code($text);
-		$text = $this->headings($text); // before hr avoiding conversion of ----
-		$text = $this->hr($text); // before emphasis avoiding matching *** as emphasis
-		$text = $this->definition($text);
-		$text = $this->emphasis($text);
-		$text = $this->img($text);
-		$text = $this->task($text); // before list otherwise only the first occasionally nested item is converted
-		$text = $this->list($text);
-		$text = $this->mail($text, $safeMode); // safeMode can not render anchors to avoid malicious scripts
-		$text = $this->mark($text);
-		$text = $this->pre($text);
-		$text = $this->s($text);
-		$text = $this->larger($text); // before sup for using the same character twice
-		$text = $this->sub($text);
-		$text = $this->sup($text);
-		$text = $this->table($text);
-		$text = $this->p($text); // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
-		$text = $this->br($text);
-		$text = $this->inlineEvents($text, $safeMode); // safeMode can not render inline events and scripts to avoid malicious inserts
+		foreach ([
+			"footnote", // should come first to avoid mishandling indentation and reutilizing list and sup
+			"blockquote", // should come second to enable nesting
+			"a", // safeMode can not render anchors to avoid malicious scripts
+			"code",
+			"headings", // before hr avoiding conversion of ----
+			"hr", // before emphasis avoiding matching *** as emphasis
+			"definition",
+			"emphasis",
+			"img",
+			"task", // before list otherwise only the first occasionally nested item is converted
+			"list",
+			"mail", // safeMode can not render anchors to avoid malicious scripts
+			"mark",
+			"pre",
+			"s",
+			"larger", // before sup for using the same character twice
+			"sub",
+			"sup",
+			"table",
+			"p", // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
+			"br",
+			"inlineEvents", // safeMode can not render inline events and scripts to avoid malicious inserts
+		] as $method) {
+			if (!$limitTo || in_array($method, $limitTo) || ($safeMode && in_array($method, ["a", "mail", "inlineEvents"]))) {
+				if (in_array($method, ["a", "mail", "inlineEvents"])) $text = $this->$method($text, $safeMode);
+				else $text = $this->$method($text);
+			}
+		}
 
 		$text = $this->escape($text); // should come after other stylings have been applied
 		$text = $this->tidy_nl($text);

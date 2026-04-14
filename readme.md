@@ -24,6 +24,8 @@ There are about 1000 PHP packages on [Packagist](https://packagist.org/search/?q
 
 safeMode does not convert links and aims to convert relevant characters for script execution and insertions to HTML-escaped characters to avoid malicious code from untrusted user input. Internal links like `#heading` are not affected though.
 
+The md2html-method of both libraries can be passed selected tags, while others will be ignored. This may improve contextual performance. Without the selection all formatting will be executed.
+
 Most of the major created element tags have a `class="eol1_md"` attribute, so you can style these more easily. This is applicable for
 * a
 * blockquote
@@ -38,7 +40,7 @@ Most of the major created element tags have a `class="eol1_md"` attribute, so yo
 * table (style tr, th and td as children)
 
 If this is not enough you would probably wrap the output into a container and address its content for your CSS and query selectors.  
-In TCPDF-mode tables are prefixed with a linebreak to ensure correct nesting within lists. Also every odd row is assigned `class="eol1_odd"`, because pseudoclasses are not supported.
+In TCPDF-mode tables are prefixed with a linebreak to ensure correct nesting within lists. Also every odd row is assigned `class="eol1_odd"`, because pseudo-classes are not supported.
 
 ### Table conversion
 The PHP-library has two additional methods to parse a CSV-file to a Markdown-table and vice versa.
@@ -74,17 +76,14 @@ Instatiate the Markdown class. In PHP you can choose to override some semantic H
 $MARKDOWN = new erroronline1\Markdown\Markdown();
 // or TCPDF-mode
 $MARKDOWN = new erroronline1\Markdown\Markdown(true);
-```
 
-Convert your Markdown-content with
-```php
 // normal mode
 $mycontent = $MARKDOWN->md2html($mycontent);
 // or safeMode to avoid malicious script insertion
 $mycontent = $MARKDOWN->md2html($mycontent, true);
 ```
 
-The same goes for the ECMAScript version. Instead of the TCPDF-flag, the md2html-method can be passed selected tags, while others will be ignored. This may improve contextual performance. Without the selection all formatting will be executed.  
+The same goes for the ECMAScript version. The TCPDF-flag is obviously not available.  
 ```js
 const MARKDOWN = new Markdown();
 mycontent = MARKDOWN->md2html(mycontent, true, ["emphasis", "larger", "br"]);
