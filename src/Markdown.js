@@ -11,15 +11,15 @@
 export class Markdown {
 	_a_auto = /(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
 	_a_md = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))([^\)]|$)/gm; // regular md links
-	_blockquote = /(^>{1,} .*(?:\n|$))+/gm;
+	_blockquote = /(^>{1,}.*?(?:\n|$))+/gm;
 	_br = / +\n/g;
-	_code_block = /^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})\n/gm;
+	_code_block = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n/gm;
 	_code_inline = /(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/g;
 	_definition = /(^.+?\n)((?:^: .+?\n)+)/gm;
 	_emphasis = /(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/g;
 	_escape = /\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/g;
 	_footnote = /\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/g;
-	_headings = /(?:^|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
+	_headings = /(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_hr = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
 	_img = /(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
 	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/gi;
@@ -34,8 +34,9 @@ export class Markdown {
 	_s = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
 	_sub = /(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/g;
 	_sup = /(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/g;
-	_table = /^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n(((?:\|.+?){1,}\|(?:\n|$))+)/gm;
+	_table = /^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n((?:(?:\|.+?){1,}\|(?:\n|$))+)/gm;
 	_task = /\[(\s*x{0,1}\s*)\] (.+?(?:\n))/gim;
+
 	_tidy_nl = />\n+|\n *<|[^>]\n+<[^\/]/gm;
 
 	_headers = [];
@@ -142,9 +143,9 @@ export class Markdown {
 	blockquote(content, sub = false) {
 		// replace blockquotes recursively
 		return content.replaceAll(this._blockquote, (...match) => {
-			match[0] = this.blockquote(match[0].replaceAll(/^\n|\n$/g, "").replaceAll(/^> {0,1}|^ /gm, ""), sub); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
-			if (sub) return '<blockquote class="eol1_md">' + match[0] + "</blockquote>"; // fence with tag, add linebreak for pattern recognition
-			return '<blockquote class="eol1_md">\n' + match[0] + "\n</blockquote>"; // fence with tag, add linebreak for pattern recognition
+			match[0] = this.blockquote(match[0].replaceAll(/^\n|\n$/g, "").replaceAll(/^> {0,1}|^ /gm, "")); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
+			if (sub) return '<blockquote class="eol1_md"><p>' + match[0].trim() + "</p></blockquote>"; // fence with tags
+			return '<blockquote class="eol1_md"><p>\n' + match[0].trim() + "\n</p></blockquote>";
 		});
 	}
 
@@ -156,8 +157,8 @@ export class Markdown {
 	code(content, sub = false) {
 		return content
 			.replaceAll(this._code_block, (...match) => {
-				if (match[1] == match[3]) return '<pre class="eol1_md">' + this.escapeHtml(match[2].replaceAll(/^\n|\n$/gm, "")) + "</pre>" + (sub ? "" : "\n");
-				return match[0];
+				// $match[2] would be a specified language, not sure what to do with that yet
+				return '<pre class="eol1_md"><code class="eol1_md">' + this.escapeHtml(match[3].replaceAll(/^\n|\n$/gm, "")) + "</code></pre>" + (sub ? "" : "\n");
 			})
 			.replaceAll(this._code_inline, (...match) => {
 				return '<code class="eol1_md">' + this.escapeHtml(match[2]) + "</code>";
@@ -186,7 +187,7 @@ export class Markdown {
 					["<strong>", "</strong>"],
 					["<em><strong>", "</strong></em>"],
 				];
-			return tags[wrapper][0] + match[2] + tags[wrapper][1];
+			return tags[wrapper][0] + this.emphasis(match[2]) + tags[wrapper][1];
 		});
 	}
 
@@ -297,8 +298,9 @@ export class Markdown {
 				list_line;
 			for (const line of match[1].split("\n")) {
 				list_line = line.match(this._list_line);
-				if (list_line){
-					if (!entries[entries.length - 1] || list_line[2]) entries.push(list_line[3] + "\n"); // add trailing linebreak to preserve pattern recognition
+				if (list_line) {
+					if (!entries[entries.length - 1] || list_line[2])
+						entries.push(list_line[3] + "\n"); // add trailing linebreak to preserve pattern recognition
 					else entries[entries.length - 1] += " " + list_line[3] + "\n"; // add trailing linebreak to preserve pattern recognition
 				}
 			}
@@ -349,7 +351,7 @@ export class Markdown {
 			let rows = match[0].split("\n");
 			// get possible alignments for colums from delimiter row
 			let columns = rows[1].split(/(?<!\\)\|/).filter((c) => Boolean(c.trim()));
-			let alignment = [null], // offset for array_keys($columns) later
+			let alignment = [],
 				align;
 			columns.forEach((column) => {
 				align = column.trim().match(/(:{0,1})-+(:{0,1})/);

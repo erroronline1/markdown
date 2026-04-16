@@ -14,15 +14,15 @@ namespace erroronline1\Markdown;
 class Markdown {
 	private $_a_auto = '/(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
 		private $_a_md = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))([^\)]|$)/m'; // regular md links
-	private $_blockquote = '/(^>{1,} .*(?:\n|$|\Z))+/m';
+	private $_blockquote = '/(^>{1,}.*?(?:\n|$))+/m';
 	private $_br = '/ +\n/';
-	private $_code_block = '/^ {0,3}([`~]{3}.*?)\n((?:.+?\n)+)^ {0,3}([`~]{3})\n/m';
+	private $_code_block = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n/m';
 		private $_code_inline = '/(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\1/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_definition = '/(^.+?\n)((?:^: .+?\n)+)/m';
 		private $_emphasis = '/(?<!\\)((?<!\S)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!\\| |\n)\1)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_escape = '/\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\|)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
-	private $_headings = '/(?:\A|^\n+^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^\n*)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
+	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
 	private $_hr = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
 	private $_img = '/(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
 		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -37,7 +37,7 @@ class Markdown {
 		private $_s = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_sub = '/(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_sup = '/(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/';
-	private $_table = '/^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n(((?:\|.+?){1,}\|(?:\n|$))+)/m';
+	private $_table = '/^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n((?:(?:\|.+?){1,}\|(?:\n|$))+)/m';
 	private $_task = '/\[(\s*x{0,1}\s*)\] (.+?(?:\n|\Z))/mi';
 	private $_tidy_nl = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
 
@@ -256,9 +256,9 @@ class Markdown {
 		// replace blockquotes recursively
 		$content = preg_replace_callback($this->_blockquote,
 			function($match) use ($sub){
-				$match[0] = $this->blockquote(preg_replace(['/^\n|\n$/', '/^> {0,1}|^ /m'], '', $match[0]), $sub); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
-				if ($sub) return '<blockquote class="eol1_md">' . $match[0] . '</blockquote>'; // fence with tag
-				return "<blockquote class=\"eol1_md\">\n" . $match[0] . "\n</blockquote>\n"; // fence with tag, add linebreak for pattern recognition
+				$match[0] = $this->blockquote(preg_replace(['/^\n|\n$/', '/^> {0,1}|^ /m'], '', $match[0])); // remove leading and trailing linebreak, blockquote character and possible whitespace and check recursively for nested blockquotes
+				if ($sub) return '<blockquote class="eol1_md"><p>' . trim($match[0]) . '</p></blockquote>'; // fence with tags
+				return '<blockquote class="eol1_md"><p>' . "\n" . trim($match[0]) . "\n" .'</p></blockquote>';
 			},
 			$content
 		);
@@ -277,8 +277,8 @@ class Markdown {
 		// replace code
 		$content = preg_replace_callback($this->_code_block,
 			function($match) use ($sub){
-				if ($match[1] == $match[3])	return '<pre class="eol1_md">' . str_replace(['&', '<', '>', '"', '\''], ['&amp;', '&lt;', '&gt;', '&quot;', '&#039;'], preg_replace('/^\n|\n$/m', '', $match[2])) . "</pre>" . ($sub ? '' : "\n");
-				return $match[0];
+				// $match[2] would be a specified language, not sure what to do with that yet
+				return '<pre class="eol1_md">' . ($this->TCPDF ? '<code class="eol1_md">' : '') . str_replace(['&', '<', '>', '"', '\''], ['&amp;', '&lt;', '&gt;', '&quot;', '&#039;'], preg_replace('/^\n|\n$/m', '', $match[3])) . ($this->TCPDF ? '</code>' : '') . "</pre>" . ($sub ? '' : "\n");
 			},
 			$content);
 
@@ -327,7 +327,7 @@ class Markdown {
 					['<strong>', '</strong>'],
 					['<em><strong>', '</strong></em>']
 				];
-				return $tags[$wrapper][0] . $match[2] . $tags[$wrapper][1];
+				return $tags[$wrapper][0] . self::emphasis($match[2]) . $tags[$wrapper][1];
 			},
 			$content
 		);
