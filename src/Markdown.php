@@ -37,6 +37,7 @@ class Markdown {
 		private $_escape = '/\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
+	private $_htmlfilter = '/</';
 	private $_horizontal_rule = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
 	private $_image = '/(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
 		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -60,7 +61,7 @@ class Markdown {
 	private $_limitTo = [];
 
 	// predefined character-sets to replace if required
-	public $_escaped = [
+	public array $_escaped = [
 		"&" => "&amp;",
 		"<" => "&lt;",
 		">" => "&gt;",
@@ -68,7 +69,7 @@ class Markdown {
 		"'" => "&#039;",
 	];
 
-	public $_typographs = [
+	public array $_typographs = [
 		"(c)" => "&copy;",
 		"(r)" => "&reg;",
 		"(tm)" => "&trade;",
@@ -78,10 +79,11 @@ class Markdown {
 	];
 
 	// modifiable lists for using as extended class
-	public $_methodsInProcessingOrder = [
-		"emphasis", // should come first to avoid to avoid modifying custom class insertions having unserscore in their name
-		"footnote", // should come second to avoid mishandling indentation and reutilizing list and superscript
-		"blockquote", // should come thirs to enable nesting
+	public array $_methodsInProcessingOrder = [
+		//"htmlfilter", // must come first to avoid modifying replaced html ################## TODO #######################
+		"emphasis", // should come second to avoid to avoid modifying custom class insertions having unserscore in their name
+		"footnote", // should come third to avoid mishandling indentation and reutilizing list and superscript
+		"blockquote", // should come fourth to enable nesting
 		"reference", // before a and footnote to not mess up with similar patterns
 		"headings", // before hr avoiding conversion of ----
 		"horizontal_rule", // before emphasis avoiding matching *** as emphasis
@@ -112,14 +114,15 @@ class Markdown {
 	];
 
 	// convert some tags currently not supported by the mentioned library
-	private $TCPDF = null;
+	// implementation as intval can handle major version behaviour
+	private int $TCPDF = 0;
 
 	/**
 	 * instatiate the interface
 	 * 
-	 * @param bool $TCPDF default null switches some tags for compatibility reasons
+	 * @param bool $TCPDF default false switches some tags for compatibility reasons
 	 */
-	public function __construct($TCPDF = null)
+	public function __construct($TCPDF = 0)
 	{
 		// rewrite working regex101.com expression on construction for correct escaping of \
 		$this->_anchor_md = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\))(?!\))/m'; // regular md links
@@ -134,7 +137,7 @@ class Markdown {
 		$this->_subscript = '/(?<!' . preg_quote('\\', '/') . ')~{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{1}/';
 		$this->_superscript = '/(?<!' . preg_quote('\\', '/') . ')\^{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{1}/';
 		$this->_typographer = '/(?<!' . preg_quote('\\', '/') . ')\((?:c|r|tm|p)(?<!' . preg_quote('\\', '/') . ')\)|(?<!' . preg_quote('\\', '/') . ')\+-|(?<!' . preg_quote('\\', '/') . ')->/i';
-		$this->TCPDF = boolval($TCPDF); 
+		$this->TCPDF = intval($TCPDF); 
 	}
 
 	/**
@@ -142,7 +145,7 @@ class Markdown {
 	 * 
 	 * @param string $path filepath to csv
 	 * @param array $csv dialect options
-	 * @return string|exception Marktown table or exception for lack of rows
+	 * @return string|\Exception Marktown table or exception for lack of rows
 	 */
 	public function csv2md($path, $csv = ['separator' => ';', 'enclosure' => '"', 'escape' => '']){
 		$csvfile = fopen($path, 'r');
@@ -189,7 +192,7 @@ class Markdown {
 	 * 
 	 * @param string $content Markdown table
 	 * @param array $csv dialect options
-	 * @return array|exception [tempfile => string, headers => string] or exception due to lack of identified tables
+	 * @return array|\Exception [tempfile => string, headers => string] or exception due to lack of identified tables
 	 */
 	public function md2csv($content, $csv = ['separator' => ';', 'enclosure' => '"', 'escape' => '']){
 		$data = [];
@@ -287,6 +290,7 @@ class Markdown {
 
 	/**
 	 * development helper...
+	 * @param mixed $content
 	 */
 	private function debug(...$content){
 		echo "<pre>"; var_dump(...$content); echo "</pre>";
@@ -558,10 +562,6 @@ class Markdown {
 	 * @return string
 	 */
 	private function image($content){
-		if ($this->TCPDF) return preg_replace($this->_image,
-				'<img alt="$1" src="$2" style="float:left; max-width:100%" />',
-				$content
-			);
 		return preg_replace($this->_image,
 			'<img alt="$1" src="$2" class="eol1_md" />',
 			$content
@@ -619,7 +619,7 @@ class Markdown {
 	 * detects list and replaces list items recursively with available nested blocks
 	 * 
 	 * @param string $content
-	 * @param bool|Generator $recursion for passing down a generator for ol list styles
+	 * @param bool|\Generator $recursion for passing down a generator for ol list styles
 	 * @return string
 	 */
 	private function list($content, $recursion = false){
@@ -631,6 +631,7 @@ class Markdown {
 				$li_type = $bullet > 0 ? 'ol' : 'ul';
 				$offset = $bullet < 2 ? '' : ' start="' . $bullet . '"';
 				$entries = [];
+				$item_split = $type = '';
 				switch($li_type){
 					case 'ol':
 						$item_split = '/^\d+\. */m';
@@ -651,7 +652,7 @@ class Markdown {
 					if ($list_entry){
 						// recursively replace nested items
 						$list_entry = $this->list(preg_replace('/^ {4}/m', '', $list_entry . "\n"), $recursion);  // add linebreak to end for pattern recognition
-						$entries[] = ($this->TCPDF && $li_type === 'ol' ? str_repeat('&nbsp;', 3) : '') . trim($list_entry);
+						$entries[] = ($this->TCPDF && $this->TCPDF < 8 && $li_type === 'ol' ? str_repeat('&nbsp;', 3) : '') . trim($list_entry);
 					}
 				}
 				return '<' . $li_type . $type . $offset . ' class="eol1_md"><li>' . implode('</li><li>', $entries) . '</li></' . $li_type . '>';
@@ -854,7 +855,7 @@ class Markdown {
 	 * @return string
 	 */
 	private function task($content){
-		if ($this->TCPDF) return preg_replace_callback($this->_task, // current implementation of tcpdf does not support html-checkboxes
+		if ($this->TCPDF && $this->TCPDF < 8) return preg_replace_callback($this->_task, // tcpdf 6.x does not support html-checkboxes
 			function($match){
 				return (trim(strtolower($match[1])) ? '[X]': '[&nbsp;&nbsp;]') . ' ' . $match[2];
 			},
