@@ -78,12 +78,9 @@ import { Markdown } from "../vendor/erroronline1/markdown/src/Markdown.js";
 ```
 
 ## Use
-Instatiate the Markdown class. In PHP you can choose to override some semantic HTML with tags supported by [TCPDF v6.11](https://github.com/tecnickcom/tcpdf) and, looking at the source code its successor currently too.  
+Instatiate the Markdown class.  
 ```php
-// normal mode
 $MARKDOWN = new \erroronline1\Markdown\Markdown();
-// or TCPDF-mode
-$MARKDOWN = new \erroronline1\Markdown\Markdown(true);
 
 // normal mode
 $mycontent = $MARKDOWN->md2html($mycontent);
@@ -91,12 +88,20 @@ $mycontent = $MARKDOWN->md2html($mycontent);
 $mycontent = $MARKDOWN->md2html($mycontent, true);
 ```
 
-The same goes for the ECMAScript version. The TCPDF-flag is obviously not available.  
 ```js
 const MARKDOWN = new Markdown();
 mycontent = MARKDOWN->md2html(mycontent, true, ["emphasis", "larger", "linebreak"]);
 ```
 will only render bold and italic, my custom larger text and linebreaks. The safeMode will still be applied.
+
+### TCPDF and tc-lib-pdf
+In PHP you can choose to override some semantic HTML with tags supported by [TCPDF v6.11](https://github.com/tecnickcom/tcpdf) and [tc-lib-pdf](https://github.com/tecnickcom/tc-lib-pdf) as far as i can catch up.  
+You can enable the respective mode by passing the required version number on instatiation of the class  
+```php
+$MARKDOWN = new \erroronline1\Markdown\Markdown(6); // for TCPDF
+$MARKDOWN = new \erroronline1\Markdown\Markdown(8); // for tc-lib-pdf
+```
+To be honest currently the switch is version 8 so any number below or above will process the respective latest versions abilities.  
 
 ### Customization
 It's easy to implement your own features by just extending the class and add/or override your own methods. Add your method to the `_methodsInProcessingOrder`- and, if applicable, the `_nested-blocks`-property (push, slice, whatever). Of course you can override methods as well. See a working implementation in index.php:
