@@ -23,7 +23,7 @@ class ListTypeGenerator {
 }
 
 export class Markdown {
-	_anchor_auto = /(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
+	_anchor_auto = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
 	_anchor_md = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))(?!\))/gm; // regular md links
 	_blockquote = /(^>{1,}.*?\n$)+/gms;
 	_code_block = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^ {4}([^\*\-\d].+)+/gm;
@@ -36,7 +36,6 @@ export class Markdown {
 	_headings = /(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_horizontal_rule = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
 	_image = /(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
-	_inlineEvents = /on\w+?=('|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/gi;
 	_larger = /(?<!\\)\^{2}([^\n]+?)(?<!\\| |\n)\^{2}/g;
 	_linebreak = / +\n/g;
 	_list = /((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/gm;
@@ -44,6 +43,7 @@ export class Markdown {
 	_mark = /==(.+?)==/g;
 	_paragraph = /(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/gim;
 	_reference = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/gm;
+	_safeMode = /<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=('|").+?(?<!\\)\2/gi;
 	_strikethrough = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
 	_subscript = /(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/g;
 	_superscript = /(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/g;
@@ -76,6 +76,7 @@ export class Markdown {
 
 	// modifiable lists for using as extended class
 	_methodsInProcessingOrder = [
+		"safeMode", // safeMode can not render inline events and scripts to avoid malicious inserts
 		"emphasis", // should come first to avoid to avoid modifying custom class insertions having unserscore in their name
 		"footnote", // should come second to avoid mishandling indentation and reutilizing list and superscript
 		"blockquote", // should come thirs to enable nesting
@@ -98,7 +99,6 @@ export class Markdown {
 		"typographer",
 		"paragraph", // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
 		"linebreak",
-		"inlineEvents", // safeMode can not render inline events and scripts to avoid malicious inserts
 	];
 
 	_nested_blocks = [
@@ -122,8 +122,8 @@ export class Markdown {
 
 		// ensure a proper processing order
 		this._methodsInProcessingOrder.forEach((method) => {
-			if (!limitTo.length || limitTo.includes(method) || (safeMode && ["anchor", "inlineEvents", "reference", "mailto"].includes(method))) {
-				if (["anchor", "inlineEvents", "reference", "mailto"].includes(method)) text = this[method](text, safeMode);
+			if (!limitTo.length || limitTo.includes(method) || (safeMode && ["anchor", "safeMode", "reference", "mailto"].includes(method))) {
+				if (["anchor", "safeMode", "reference", "mailto"].includes(method)) text = this[method](text, safeMode);
 				else text = this[method](text);
 			}
 		});
@@ -193,6 +193,7 @@ export class Markdown {
 		const _references = this._references;
 		return content
 			.replaceAll(this._anchor_auto, (...match) => {
+				console.log(match);
 				if (Object.values(_references).indexOf(match[1]) > -1) return match[1]; // avoid duplication of link creation from references
 				if (match[1].startsWith("#")) return `<a href="${match[1]}" class="eol1_md">${match[1]}</a>`;
 				if (safeMode) return this.escapeHtml(match[0]);
@@ -392,22 +393,6 @@ export class Markdown {
 	}
 
 	/**
-	 * replace inline events, href-javascript and some tags with spechialchars
-	 * may break some links but better safe than sorry
-	 *
-	 * @param {string} content
-	 * @param {boolean} safeMode
-	 * @returns string
-	 */
-	inlineEvents(content, safeMode = false) {
-		if (safeMode)
-			return content.replaceAll(this._inlineEvents, (...match) => {
-				return this.escapeHtml(match[0]);
-			});
-		return content;
-	}
-
-	/**
 	 * replace lager font decorator
 	 * THIS IS A CUSTOM MARKDOWN PROPERTY TO THIS FLAVOUR
 	 *
@@ -551,6 +536,22 @@ export class Markdown {
 				else if (match[4]) return "";
 			}
 		});
+		return content;
+	}
+
+	/**
+	 * replace inline events, href-javascript and some tags with spechialchars
+	 * may break some links but better safe than sorry
+	 *
+	 * @param {string} content
+	 * @param {boolean} safeMode
+	 * @returns string
+	 */
+	safeMode(content, safeMode = false) {
+		if (safeMode)
+			return content.replaceAll(this._safeMode, (...match) => {
+				return this.escapeHtml(match[0]);
+			});
 		return content;
 	}
 

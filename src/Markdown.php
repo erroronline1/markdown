@@ -26,7 +26,7 @@ class ListTypeGenerator{
 }
 
 class Markdown {
-	private $_anchor_auto = '/(?<!\]\()(?:\<{0,1})((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
+	private $_anchor_auto = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
 		private $_anchor_md = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))(?!\))/m'; // regular md links; rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,}.*?\n$)+/ms';
 	private $_code_block = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^ {4}([^\*\-\d].+)+/m';
@@ -37,10 +37,8 @@ class Markdown {
 		private $_escape = '/\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
-	private $_htmlfilter = '/</';
 	private $_horizontal_rule = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
 	private $_image = '/(?:!\[)(.+?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
-		private $_inlineEvents = '/on\w+?=(\'|").+?(?<!\\)\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|href=(\'|")javascript:.+?(?<!\\)\3/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_larger = '/(?<!\\)\^{2}([^\n]+?)(?<!\\| |\n)\^{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_linebreak = '/ +\n/';
 	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$|\Z)/m';
@@ -48,6 +46,7 @@ class Markdown {
 	private $_mark = '/==(.+?)==/';
 	private $_paragraph = '/(?:^$\n|\A)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$|\Z)/mi';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
+		private $_safeMode = '/<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_strikethrough = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_subscript = '/(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_superscript = '/(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/';
@@ -80,7 +79,7 @@ class Markdown {
 
 	// modifiable lists for using as extended class
 	public array $_methodsInProcessingOrder = [
-		//"htmlfilter", // must come first to avoid modifying replaced html ################## TODO #######################
+		"safeMode", // safeMode can not render inline events and scripts to avoid malicious inserts
 		"emphasis", // should come second to avoid to avoid modifying custom class insertions having unserscore in their name
 		"footnote", // should come third to avoid mishandling indentation and reutilizing list and superscript
 		"blockquote", // should come fourth to enable nesting
@@ -103,7 +102,6 @@ class Markdown {
 		"typographer",
 		"paragraph", // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
 		"linebreak",
-		"inlineEvents", // safeMode can not render inline events and scripts to avoid malicious inserts
 	];
 
 	public $_nested_blocks = [
@@ -130,9 +128,9 @@ class Markdown {
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')((?<!^)\_{1,3}|\*{1,3}(?! ))([^\n]+?)((?<!' . preg_quote('\\', '/') . '| |\n)\1)/m';
 		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_)/';
 		$this->_mailto = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
-		$this->_inlineEvents = '/on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\1|<(script|title|textarea|style|xmp|iframe|noembed|noframes|plaintext).+?\/\2>|(\'|")javascript:.+?(?<!' . preg_quote('\\', '/') . ')\3/mi';
 		$this->_larger = '/(?<!' . preg_quote('\\', '/') . ')\^{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{2}/';
 		$this->_reference = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m';
+		$this->_safeMode = '/<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\2/mi';
 		$this->_strikethrough = '/(?<!' . preg_quote('\\', '/') . ')~{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{2}/';
 		$this->_subscript = '/(?<!' . preg_quote('\\', '/') . ')~{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{1}/';
 		$this->_superscript = '/(?<!' . preg_quote('\\', '/') . ')\^{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{1}/';
@@ -249,8 +247,8 @@ class Markdown {
 		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
 
 		foreach ($this->_methodsInProcessingOrder as $method) {
-			if (!$limitTo || in_array($method, $limitTo) || ($safeMode && in_array($method, ["anchor", "inlineEvents", "reference", "mailto"]))) {
-				if (in_array($method, ["anchor", "inlineEvents", "reference", "mailto"])) $text = $this->$method($text, $safeMode);
+			if (!$limitTo || in_array($method, $limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference", "mailto"]))) {
+				if (in_array($method, ["anchor", "safeMode", "reference", "mailto"])) $text = $this->$method($text, $safeMode);
 				else $text = $this->$method($text);
 			}
 		}
@@ -570,25 +568,6 @@ class Markdown {
 	}
 
 	/**
-	 * replace inline events, href-javascript and some tags with spechialchars
-	 * may break some links but better safe than sorry
-	 * 
-	 * @param string $content
-	 * @param bool $safeMode
-	 * @return string
-	 */
-	private function inlineEvents($content, $safeMode){
-		if ($safeMode) {
-			return preg_replace_callback($this->_inlineEvents,
-				function($match){
-					return htmlspecialchars($match[0]);
-				},
-				$content);
-		}
-		return $content;
-	}
-
-	/**
 	 * replace lager font decorator
 	 * THIS IS A CUSTOM MARKDOWN PROPERTY TO THIS FLAVOUR
 	 * 
@@ -762,6 +741,25 @@ class Markdown {
 			},
 			$content
 		);
+		return $content;
+	}
+
+	/**
+	 * replace inline events, href-javascript and some tags with spechialchars
+	 * may break some links but better safe than sorry
+	 * 
+	 * @param string $content
+	 * @param bool $safeMode
+	 * @return string
+	 */
+	private function safeMode($content, $safeMode){
+		if ($safeMode) {
+			return preg_replace_callback($this->_safeMode,
+				function($match){
+					return htmlspecialchars($match[0]);
+				},
+				$content);
+		}
 		return $content;
 	}
 
