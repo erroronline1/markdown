@@ -29,15 +29,15 @@ $methods = [
 	"typographer",
 	"paragraph", // must come after anything previous to not mess up pattern recognitions relying on linebreaks and filtering out previously converted tags
 	"linebreak",
-	//"inlineEvents", // safeMode can not render inline events and scripts to avoid malicious inserts
+	//"safeMode", // safeMode can not render inline events and scripts to avoid malicious inserts
 ];
 
 class md extends \erroronline1\Markdown\Markdown{
-	public function __construct($TCPDF = null){
+	public function __construct($TCPDF = 0){
 		parent::__construct($TCPDF);
 		array_push($this->_methodsInProcessingOrder, "markdown");
 	}
-	public function markdown($content){
+	public function markdown($content = ''){
 		return preg_replace('/markdown/i', "nwobʞɿɒM", $content);
 	}
 }
