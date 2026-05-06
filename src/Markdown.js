@@ -23,7 +23,7 @@ class ListTypeGenerator {
 }
 
 export class Markdown {
-	_anchor_auto = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
+	_anchor_auto = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'`>]+)(?:\>{0,1})/gi; // auto url linking, including some schemes
 	_anchor_md = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))(?!\))/gm; // regular md links
 	_blockquote = /(^>{1,}.*?\n$)+/gms;
 	_code_block = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^ {4}([^\*\-\d].+)+/gm;
@@ -43,7 +43,7 @@ export class Markdown {
 	_mark = /==(.+?)==/g;
 	_paragraph = /(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/gim;
 	_reference = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/gm;
-	_safeMode = /<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=('|").+?(?<!\\)\2/gi;
+	_safeMode = /<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=('|").+?(?<!\\)\2/gi;
 	_strikethrough = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
 	_subscript = /(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/g;
 	_superscript = /(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/g;
@@ -76,18 +76,18 @@ export class Markdown {
 
 	// modifiable lists for using as extended class
 	_methodsInProcessingOrder = [
-		"safeMode", // safeMode can not render inline events and scripts to avoid malicious inserts
-		"emphasis", // should come first to avoid to avoid modifying custom class insertions having unserscore in their name
-		"footnote", // should come second to avoid mishandling indentation and reutilizing list and superscript
-		"blockquote", // should come thirs to enable nesting
+		"safeMode", // safeMode must come first to disable unsupported tags; can not render inline events and scripts to avoid malicious inserts
+		"emphasis", // should come second to avoid to avoid modifying custom class insertions having unserscore in their name
+		"footnote", // should come third to avoid mishandling indentation and reutilizing list and superscript
+		"blockquote", // should come fourth to enable nesting
 		"reference", // before a and footnote to not mess up with similar patterns
 		"headings", // before hr avoiding conversion of ----
 		"horizontal_rule", // before emphasis avoiding matching *** as emphasis
 		"definition",
 		"task", // before list otherwise only the first occasionally nested item is converted
 		"list",
-		"code", // after list to avoid erroneous indentation matching
 		"anchor", // safeMode can not render anchors to avoid malicious scripts
+		"code", // after list to avoid erroneous indentation matching, after anchor to enable anchor code escaping
 		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"image",
 		"mark",
@@ -193,7 +193,6 @@ export class Markdown {
 		const _references = this._references;
 		return content
 			.replaceAll(this._anchor_auto, (...match) => {
-				console.log(match);
 				if (Object.values(_references).indexOf(match[1]) > -1) return match[1]; // avoid duplication of link creation from references
 				if (match[1].startsWith("#")) return `<a href="${match[1]}" class="eol1_md">${match[1]}</a>`;
 				if (safeMode) return this.escapeHtml(match[0]);
@@ -227,8 +226,8 @@ export class Markdown {
 	blockquote(content, recursion = false) {
 		return content.replaceAll(this._blockquote, (...match) => {
 			match[0] = this.blockquote(match[0].replaceAll(/^> {0,1}|^ /gm, ""), true); // remove blockquote character and possible whitespace and check recursively for nested blockquotes
-			if (recursion) return `<blockquote class="eol1_md"><p>${match[0]}</p></blockquote>`; // fence with tags
-			return `<blockquote class="eol1_md"><p>\n${match[0]}\n</p></blockquote>\n`;
+			if (recursion) return `<p><blockquote class="eol1_md">${match[0]}</blockquote></p>`; // fence with tags
+			return `<p><blockquote class="eol1_md">\n${match[0]}\n</blockquote></p>\n`;
 		});
 	}
 
@@ -244,7 +243,7 @@ export class Markdown {
 				// match[2] for fenced code would be a specified language, not sure what to do with that yet
 				// if match[4] code blocks are written with pure indentation
 				let code = match[4] ? match[0].replaceAll(/^ {4}/gm, "") : match[3];
-				return `<pre class="eol1_md"><code class="eol1_md">${this.escapeHtml(code).replaceAll("    ", "\t")}</code></pre>`; // replace 4 spaces within code with tabs to avoid collision with pre
+				return `<code class="eol1_md"><pre class="eol1_md">${this.escapeHtml(code).replaceAll("    ", "\t")}</pre></code>`; // replace 4 spaces within code with tabs to avoid possible collisions
 			})
 			.replaceAll(this._code_inline, (...match) => {
 				return `<code class="eol1_md">${this.escapeHtml(match[2])}</code>`;
@@ -456,7 +455,7 @@ export class Markdown {
 			}
 			return `<${li_type} ${type} ${offset} class="eol1_md"><li>` + entries.join("</li><li>") + `</li></${li_type}>`;
 		});
-		if (recursion) {
+		if (passed_recursion) {
 			// replace possible nested blocks in list item
 			content = this.nested_blocks(content);
 		}
