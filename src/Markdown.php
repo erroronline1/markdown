@@ -26,7 +26,7 @@ class ListTypeGenerator{
 }
 
 class Markdown {
-	private $_anchor_auto = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
+	private $_anchor_auto = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`>]+)(?:\>{0,1})/i'; // auto url linking, including some schemes
 		private $_anchor_md = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\))(?!\))/m'; // regular md links; rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,}.*?\n$)+/ms';
 	private $_code_block = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^ {4}([^\*\-\d].+)+/m';
@@ -46,7 +46,7 @@ class Markdown {
 	private $_mark = '/==(.+?)==/';
 	private $_paragraph = '/(?:^$\n|\A)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$|\Z)/mi';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
-		private $_safeMode = '/<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
+		private $_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_strikethrough = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_subscript = '/(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_superscript = '/(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/';
@@ -79,7 +79,7 @@ class Markdown {
 
 	// modifiable lists for using as extended class
 	public array $_methodsInProcessingOrder = [
-		"safeMode", // safeMode can not render inline events and scripts to avoid malicious inserts
+		"safeMode", // safeMode must come first to disable unsupported tags; can not render inline events and scripts to avoid malicious inserts
 		"emphasis", // should come second to avoid to avoid modifying custom class insertions having unserscore in their name
 		"footnote", // should come third to avoid mishandling indentation and reutilizing list and superscript
 		"blockquote", // should come fourth to enable nesting
@@ -89,8 +89,8 @@ class Markdown {
 		"definition",
 		"task", // before list otherwise only the first occasionally nested item is converted
 		"list",
-		"code", // after list to avoid erroneous indentation matching
 		"anchor", // safeMode can not render anchors to avoid malicious scripts
+		"code", // after list to avoid erroneous indentation matching, after anchor to enable anchor code escaping
 		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"image",
 		"mark",
@@ -130,7 +130,7 @@ class Markdown {
 		$this->_mailto = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
 		$this->_larger = '/(?<!' . preg_quote('\\', '/') . ')\^{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{2}/';
 		$this->_reference = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m';
-		$this->_safeMode = '/<(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\2/mi';
+		$this->_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\2/mi';
 		$this->_strikethrough = '/(?<!' . preg_quote('\\', '/') . ')~{2}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{2}/';
 		$this->_subscript = '/(?<!' . preg_quote('\\', '/') . ')~{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)~{1}/';
 		$this->_superscript = '/(?<!' . preg_quote('\\', '/') . ')\^{1}([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\^{1}/';
@@ -362,8 +362,8 @@ class Markdown {
 		$content = preg_replace_callback($this->_blockquote,
 			function($match) use ($recursion){
 				$match[0] = $this->blockquote(preg_replace(['/^> {0,1}|^ /m'], '', $match[0]), true); // remove blockquote character and possible whitespace and check recursively for nested blockquotes
-				if ($recursion) return '<blockquote class="eol1_md"><p>' . $match[0] . "</p></blockquote>"; // fence with tags
-				return '<blockquote class="eol1_md"><p>' . "\n" . $match[0] . "\n</p></blockquote>\n";
+				if ($recursion) return '<p><blockquote class="eol1_md">' . $match[0] . "</blockquote></p>"; // fence with tags
+				return '<p><blockquote class="eol1_md">' . "\n" . $match[0] . "\n</blockquote></p>\n";
 			},
 			$content
 		);
@@ -382,7 +382,7 @@ class Markdown {
 				// $match[2] for fenced code would be a specified language, not sure what to do with that yet
 				// if match[4] code blocks are written with pure indentation
 				$code = isset($match[4]) ? preg_replace('/^ {4}/m', '', $match[0]) : $match[3];
-				return '<pre class="eol1_md">' . (!$this->TCPDF ? '<code class="eol1_md">' : '') . str_replace('    ', "\t", $this->escapeHtml($code)) . (!$this->TCPDF ? '</code>' : '') . "</pre>"; // replace 4 spaces within code with tabs to avoid collision with pre
+				return (!$this->TCPDF ? '<code class="eol1_md">' : '') . '<pre class="eol1_md">' . str_replace('    ', "\t", $this->escapeHtml($code)) . '</pre>' . (!$this->TCPDF ? '</code>' : ''); // replace 4 spaces within code with tabs to avoid possible collisions
 			},
 			$content);
 
