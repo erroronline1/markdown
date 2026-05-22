@@ -42,7 +42,7 @@ class Markdown {
 	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/m';
 		private $_mailto = '/([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_mark = '/==(.+?)==/';
-	private $_paragraph = '/(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/mi';
+	private $_paragraph = '/(?:^$\n)((?<!^<)(?:(.))+?)(?:\n^$)/mi';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_strikethrough = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -596,7 +596,7 @@ class Markdown {
 					}
 					$this->_headers[] = $id;
 				}
-				return "\n<h" . $size . ' id="' . $id . '">' . $heading . '</h' . $size . ">";
+				return "<h" . $size . ' id="' . $id . '">' . $heading . '</h' . $size . ">\n";
 			},
 			$content
 		);

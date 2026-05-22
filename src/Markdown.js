@@ -42,7 +42,7 @@ export class Markdown {
 	_list = /((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/gm;
 	_mailto = /([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/g;
 	_mark = /==(.+?)==/g;
-	_paragraph = /(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/gim;
+	_paragraph = /(?:^$\n)((?<!^<)(?:(.))+?)(?:\n^$)/gim;
 	_reference = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/gm;
 	_safeMode = /<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=('|").+?(?<!\\)\2/gi;
 	_strikethrough = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
@@ -412,7 +412,7 @@ export class Markdown {
 				}
 				this._headers.push(id);
 			}
-			return `\n<h${size} id="${id}">${heading}</h${size}>`;
+			return `<h${size} id="${id}">${heading}</h${size}>\n`;
 		});
 	}
 
@@ -530,6 +530,7 @@ export class Markdown {
 	 * @returns string
 	 */
 	paragraph(content) {
+		console.log(content);
 		let code = content.match(/<code.*?code>/gs);
 		if (!code) return content.replaceAll(this._paragraph, "<p>$1</p>\n");
 		// split the content by found code blocks to later zip code blocks with converted content
