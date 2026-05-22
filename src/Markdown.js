@@ -26,7 +26,7 @@ export class Markdown {
 	// likely imperfect hack to include literal unicode characters within headers as these are currently not matched by \w
 	_unicode_regex = "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿŒœŠšŸƒ";
 
-	_anchor = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'`>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
+	_anchor = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
 	_blockquote = /(^>{1,}.*?\n$)+/gms;
 	_code = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/gm;
 	_compress = />\n+|\n *<|[^>]\n+<[^\/]/gm;
@@ -36,7 +36,7 @@ export class Markdown {
 	_footnote = /\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/g;
 	_headings = /(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_horizontal_rule = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
-	_image = /(?:!\[)(.*?)(?:\])(?:\()(.+?)(?:\))([^\)])/g;
+	_image = /(?:!\[)(.*?)(?:\])(?:\()(.+?)(?:\))/g;
 	_fontsize = /(?<!\\)((?:\+|-){2,})([^\n]+?)(?<!\\| |\n)\1(?!((?:\+|-)))/g;
 	_linebreak = / +\n/g;
 	_list = /((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/gm;
@@ -434,7 +434,7 @@ export class Markdown {
 	 */
 	image(content) {
 		return content.replaceAll(this._image, (...match) => {
-			return `<img alt="${(match[1] || "").replaceAll(/_/g, "\\_")}" src="${match[2].replaceAll(/_/g, "\\_")}" class="eol1_md" />${match[3] === "\n" ? "<br />" + match[3] : match[3]}`;
+			return `<img alt="${(match[1] || "").replaceAll(/_/g, "\\_")}" src="${match[2].replaceAll(/_/g, "\\_")}" class="eol1_md" />`;
 		});
 	}
 

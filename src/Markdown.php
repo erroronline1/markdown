@@ -26,7 +26,7 @@ class ListTypeGenerator{
 }
 
 class Markdown {
-		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
+		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,}.*?\n$)+/ms';
 		private $_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/m'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_compress = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
@@ -36,7 +36,7 @@ class Markdown {
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
 	private $_horizontal_rule = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
-	private $_image = '/(?:!\[)(.*?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
+	private $_image = '/(?:!\[)(.*?)(?:\])(?:\()(.+?)(?:\))/';
 		private $_fontsize = '/(?<!\\)((?:\+|-){2,})([^\n]+?)(?<!\\| |\n)\1(?!((?:\+|-)))/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_linebreak = '/ +\n/';
 	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/m';
@@ -121,7 +121,7 @@ class Markdown {
 	public function __construct($TCPDF = 0)
 	{
 		// rewrite working regex101.com expression on construction for correct escaping of \
-		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`>]+)(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
+		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
 		$this->_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!' . preg_quote('\\', '/') . ')(`{1,2})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\5/m';
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')(\*{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\1|(?<!' . preg_quote('\\', '/') . '|\S)(_{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\3(\W)/m';
 		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||' . preg_quote('\\', '/') . ')/';
@@ -624,7 +624,7 @@ class Markdown {
 	private function image($content){
 		return preg_replace_callback($this->_image,
 			function($match){
-				return '<img alt="' . str_replace('_', '\_', $match[1] ?: '') . '" src="' . str_replace('_', '\_', $match[2]) . '" class="eol1_md" />' . ($match[3] === "\n" ? '<br />'. $match[3] : $match[3]);
+				return '<img alt="' . str_replace('_', '\_', $match[1] ?: '') . '" src="' . str_replace('_', '\_', $match[2]) . '" class="eol1_md" />';
 			},
 			$content
 		);
