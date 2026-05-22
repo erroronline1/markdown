@@ -742,7 +742,7 @@ class Markdown {
 	 * @return string
 	 */
 	private function paragraph($content){
-		preg_match_all('/<code.*?code>/', $content, $code);
+		preg_match_all('/<code.*?code>/s', $content, $code);
 		$code = $code[0];
 		if (!$code) return preg_replace($this->_paragraph,
 			"<p>$1</p>\n",

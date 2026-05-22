@@ -190,7 +190,7 @@ export class Markdown {
 			unescapedCode = (uccontent) => {
 				let code = uccontent.match(/<code.*?code>/g);
 				if (!code) return this.escapeHtml(uccontent);
-				// split the content by found code blocks to later zip code blocks with converted content 
+				// split the content by found code blocks to later zip code blocks with converted content
 				let nocode = uccontent.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g"));
 				for (let i = 0; i < nocode.length; i++) {
 					nocode[i] = this.escapeHtml(nocode[i]);
@@ -530,9 +530,9 @@ export class Markdown {
 	 * @returns string
 	 */
 	paragraph(content) {
-		let code = content.match(/<code.*?code>/g);
+		let code = content.match(/<code.*?code>/gs);
 		if (!code) return content.replaceAll(this._paragraph, "<p>$1</p>\n");
-		// split the content by found code blocks to later zip code blocks with converted content 
+		// split the content by found code blocks to later zip code blocks with converted content
 		let nocode = content.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g"));
 		for (let i = 0; i < nocode.length; i++) {
 			nocode[i] = nocode[i].replaceAll(this._paragraph, "<p>$1</p>\n");
