@@ -39,17 +39,17 @@ class Markdown {
 	private $_image = '/(?:!\[)(.*?)(?:\])(?:\()(.+?)(?:\))([^\)])/';
 		private $_fontsize = '/(?<!\\)((?:\+|-){2,})([^\n]+?)(?<!\\| |\n)\1(?!((?:\+|-)))/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_linebreak = '/ +\n/';
-	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$|\Z)/m';
+	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/m';
 		private $_mailto = '/([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_mark = '/==(.+?)==/';
-	private $_paragraph = '/(?:^$\n|\A)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$|\Z)/mi';
+	private $_paragraph = '/(?:^$\n)((?<!^<)(?:(\n|.)(?!>$))+?)(?:\n^$)/mi';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_strikethrough = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_subscript = '/(?<!\\)~{1}([^\n]+?)(?<!\\| |\n)~{1}/'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_superscript = '/(?<!\\)\^{1}([^\n]+?)(?<!\\| |\n)\^{1}/';
 	private $_table = '/^((?:\|.+?){1,}\|)\n((?:\| *:{0,1}-+:{0,1} *?){1,}\|)\n((?:(?:\|.+?){1,}\|(?:\s*\n|\s*$))+)/m';
-	private $_task = '/\[(\s*x{0,1}\s*)\] (.+?(?:\n|\Z))/mi';
+	private $_task = '/\[(\s*x{0,1}\s*)\] (.+?(?:\n))/mi';
 		private $_typographer = '/(?<!\\)\((?:c|r|tm|p)(?<!\\)\)|(?<!\\)\+-|(?<!\\)->/i'; // rewrite working regex101.com expression on construction for correct escaping of \
 
 	// class properties to use over multiple methods
@@ -323,16 +323,16 @@ class Markdown {
 			preg_match_all('/<code.*?code>/', $uccontent, $code);
 			$code = $code[0];
 			if (!$code) return $this->escapeHtml($uccontent);
-			// split the content by found code blocks to later zip converted code blocks with content 
+			// split the content by found code blocks to later zip code blocks with converted content 
 			$nocode = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $code)) . '/', $uccontent);
 			for ($i = 0; $i < count($nocode); $i++){
 				$nocode[$i] = $this->escapeHtml($nocode[$i]);
 			}
-			$content = [];
+			$uccontent = [];
 			for ($i = 0;$i < count($nocode); $i++){
-				array_push($content, $nocode[$i], $code[$i] ?? '');
+				array_push($uccontent, $nocode[$i], $code[$i] ?? '');
 			}
-			return implode('', $content);
+			return implode('', $uccontent);
 		};
 		return preg_replace_callback($this->_anchor,
 			function($match) use ($safeMode, $_references, $unescapedCode){
@@ -742,9 +742,35 @@ class Markdown {
 	 * @return string
 	 */
 	private function paragraph($content){
-		return preg_replace($this->_paragraph,
+		preg_match_all('/<code.*?code>/', $content, $code);
+		$code = $code[0];
+		if (!$code) return preg_replace($this->_paragraph,
 			"<p>$1</p>\n",
 			$content);
+		// split the content by found code blocks to later zip code blocks with converted content 
+		// this would work but may fail on longer readme-files with Compilation failed: regular expression is too large:
+		// $nocode = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $code)) . '/', $content);
+		$nocode = [];
+		foreach($code as $c){
+			// find in string
+			$pos = strpos($content, $c);
+			// add substring to nocode
+			$nocode[] = substr($content, 0, $pos);
+			// remove from content
+			$content = substr($content, $pos + strlen($c));
+		}
+		// add remainder
+		$nocode[] = $content;
+		for ($i = 0; $i < count($nocode); $i++){
+			$nocode[$i] = preg_replace($this->_paragraph,
+				"<p>$1</p>\n",
+				$nocode[$i]);
+		}
+		$content = [];
+		for ($i = 0;$i < count($nocode); $i++){
+			array_push($content, $nocode[$i], $code[$i] ?? '');
+		}
+		return implode('', $content);
 	}
 
 	/**
