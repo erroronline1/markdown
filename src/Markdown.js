@@ -87,9 +87,9 @@ export class Markdown {
 		"horizontal_rule", // prior to list avoiding conversion of - - -
 		"list",
 		"table",
-		"anchor", // prior to emphasis to escape underscore; safeMode can not render anchors to avoid malicious scripts
-		"mailto", // prior to emphasis to escape underscore; safeMode can not render anchors to avoid malicious scripts
-		"image", // prior to emphasis to escape underscore;
+		"image", // prior to anchor for properly linkable images
+		"anchor", // safeMode can not render anchors to avoid malicious scripts
+		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"task",
 		"mark",
 		"strikethrough",
@@ -188,7 +188,7 @@ export class Markdown {
 		// replace links in this order
 		const _references = this._references,
 			unescapedCode = (uccontent) => {
-				let code = uccontent.match(/<code.*?code>/g);
+				let code = uccontent.match(/<code.*?code>|<img.+\/>/g);
 				if (!code) return this.escapeHtml(uccontent);
 				// split the content by found code blocks to later zip code blocks with converted content
 				let nocode = uccontent.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g"));

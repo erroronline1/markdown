@@ -17,10 +17,10 @@ $methods = [
 		"horizontal_rule", // prior to list avoiding conversion of - - -
 		"list",
 		"table",
-		"anchor", // prior to emphasis to escape underscore; safeMode can not render anchors to avoid malicious scripts
-		"mailto", // prior to emphasis to escape underscore; safeMode can not render anchors to avoid malicious scripts
-		"image", // prior to emphasis to escape underscore;
-		"task", 
+		"image", // prior to anchor for properly linkable images
+		"anchor", // safeMode can not render anchors to avoid malicious scripts
+		"mailto", // safeMode can not render anchors to avoid malicious scripts
+		"task",
 		"mark",
 		"strikethrough",
 		"subscript",
