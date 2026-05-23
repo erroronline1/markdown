@@ -530,7 +530,6 @@ export class Markdown {
 	 * @returns string
 	 */
 	paragraph(content) {
-		console.log(content);
 		let code = content.match(/<code.*?code>/gs);
 		if (!code) return content.replaceAll(this._paragraph, "<p>$1</p>\n");
 		// split the content by found code blocks to later zip code blocks with converted content
