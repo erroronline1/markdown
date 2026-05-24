@@ -1,12 +1,6 @@
 <?php
-/**
- * [Markdown](https://github.com/erroronline1/markdown)
- * Copyright (C) 2026 error on line 1 (dev@erroronline.one)
- * 
- * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.  
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details.  
- * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.  
- */
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileNotice: Part of erroronline1/markdown parser for PHP & ECMA-Script.
 
 namespace erroronline1\Markdown;
 
@@ -29,6 +23,7 @@ class Markdown {
 		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,}.*?\n$)+/ms';
 		private $_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/m'; // rewrite working regex101.com expression on construction for correct escaping of \
+	private $_comment = '/<!--.*?-->/ms';
 	private $_compress = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
 	private $_definition = '/(^.+?\n)((?:^: .+?\n)+)/m';
 		private $_emphasis = '/(?<!\\)(\*{1,3}(?! ))([^\n]+?)(?<!\\| )\1|(?<!\\|\S)(_{1,3}(?! ))([^\n]+?)(?<!\\| )\3(\W)/m'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -42,7 +37,7 @@ class Markdown {
 	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/m';
 		private $_mailto = '/([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_mark = '/==(.+?)==/';
-	private $_paragraph = '/(?:^$\n)((?<!^<)(?:(.))+?)(?:\n^$)/mi';
+	private $_paragraph = '/(?:^$\n)(.+?)(?:\n^$)/ms';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!\\)\2/mi'; // rewrite working regex101.com expression on construction for correct escaping of \
 		private $_strikethrough = '/(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -236,26 +231,49 @@ class Markdown {
 	 * entry method to convert a text to markdown
 	 * 
 	 * @param string $text Markdown styled
-	 * @param bool $safeMode returns anchors as specialchars
+	 * @param bool $safeMode returns anchors as specialchars and some
 	 * @param array $limitTo process only given methods, empty for all
 	 * @return string as HTML
 	 */
 	public function md2html($text, $safeMode = false, $limitTo = []){
 		$this->_limitTo = $limitTo;
-		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
 
+		// split by comments that are not to be converted
+		preg_match_all($this->_comment, $text, $comment);
+		$comment = $comment[0];
+		if (!$comment) return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $this->md2html_block($text, $safeMode);
+		
+		// split the content by found comment blocks to later zip converted content blocks with comment 
+		$content = $this->separate($text, $comment);
+		for ($i = 0; $i < count($content); $i++){
+			$content[$i] = $this->md2html_block($content[$i], $safeMode);
+		}
+		$text = [];
+		for ($i = 0;$i < count($content); $i++){
+			array_push($text, $content[$i], $comment[$i] ?? '');
+		}
+		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . implode('', $text);
+	}
+
+	/**
+	 * convert text blocks to markdown passed by entry point, excluding comments and what's else to come
+	 * 
+	 * @param string $text Markdown styled
+	 * @param bool $safeMode returns anchors as specialchars and some
+	 * @return string as HTML
+	 */
+	private function md2html_block($text, $safeMode = false) {
+		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
 		foreach ($this->_methodsInProcessingOrder as $method) {
-			if (!$limitTo || in_array($method, $limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference", "mailto"]))) {
+			if (!$this->_limitTo || in_array($method, $this->_limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference", "mailto"]))) {
 				if (in_array($method, ["anchor", "safeMode", "reference", "mailto"])) $text = $this->$method($text, $safeMode);
 				else $text = $this->$method($text);
 			}
 		}
-
 		$text = $this->escape($text); // should come after other stylings have been applied
 		$text = $this->compress($text);
 		$text = preg_replace(['/\t/'], ['    '], $text); // revert code indentation
-
-		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $text;
+		return $text;
 	}
 
 	/**
@@ -267,8 +285,7 @@ class Markdown {
 	private function nested_blocks($content){
 		foreach($this->_nested_blocks as $method){
 			if (!$this->_limitTo || in_array($method, $this->_limitTo)){
-				if (in_array($method, ["blockquote"])) $content = $this->$method($content, true);
-				else $content = $this->$method($content);
+				$content = $this->$method($content);
 			}
 		};
 		return $content;
@@ -276,7 +293,7 @@ class Markdown {
 
 	/**
 	 * escape special chars for code, pre and in case of safeMode
-	 * 
+	 * </p>
 	 * @param string $content
 	 * @return string
 	 */
@@ -309,6 +326,32 @@ class Markdown {
 	}
 
 	/**
+	 * split the content by found blocks to later zip converted content blocks with separator blocks
+	 * 
+	 * @param string $content
+	 * @param array $by
+	 * @return array
+	 */
+	private function separate($content, $by = []){
+		// due to the nature of preg-match results, patterns did not proof suitable for splitting. must be literals
+		// $content = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $by)) . '/', $content);
+		// this works in general but will fail on longer readme-files with Compilation failed: regular expression is too large:
+		// ecmas is a bit more relax on this
+		$return = [];
+		foreach($by as $c){
+			// find in string
+			$pos = strpos($content, $c);
+			// add substring to content
+			$return[] = substr($content, 0, $pos);
+			// remove from text
+			$content = substr($content, $pos + strlen($c));
+		}
+		// add remainder
+		$return[] = $content;
+		return $return;
+	}
+
+	/**
 	 * replaces links unless already converted by the reference-method or external links in safeMode
 	 * internal links are always rendered since considerable safe
 	 * 
@@ -324,9 +367,9 @@ class Markdown {
 			$code = $code[0];
 			if (!$code) return $this->escapeHtml($uccontent);
 			// split the content by found code blocks to later zip code blocks with converted content 
-			$nocode = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $code)) . '/', $uccontent);
+			$nocode = $this->separate($uccontent, $code);
 			for ($i = 0; $i < count($nocode); $i++){
-				$nocode[$i] = $this->escapeHtml($nocode[$i]);
+				$nocode[$i] = str_replace('-', '\-', $this->escapeHtml($nocode[$i]));
 			}
 			$uccontent = [];
 			for ($i = 0;$i < count($nocode); $i++){
@@ -339,15 +382,15 @@ class Markdown {
 				if (in_array($match[1], $_references)) return $match[1]; // avoid duplication of link creation from references
 
 				// markdown linking, allow internal links
-				if (isset($match[3]) && str_starts_with($match[3], '#')) return '<a href="' . $match[3] . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				if (isset($match[3]) && str_starts_with($match[3], '#')) return '<a href="' . str_replace('-', '\-', $match[3]) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
 
 				if ($safeMode) return $unescapedCode($match[0]);
 
 				// auto linking with protocols
-				if ($match[1]) return '<a href="' . $match[1] . '" class="eol1_md">' . $unescapedCode($match[1]) . '</a>';
+				if ($match[1]) return '<a href="' . str_replace('-', '\-', $match[1]) . '" class="eol1_md">' . $unescapedCode($match[1]) . '</a>';
 				//markdown linking
 				$url = '';
-				if (str_starts_with($match[3], 'javascript:')) $url = $match[2];
+				if (str_starts_with($match[3], 'javascript:')) $url = $match[3];
 				else {
 					$component = parse_url($match[3]);
 					if (isset($component['query'])){
@@ -359,7 +402,7 @@ class Markdown {
 				}
 				if (isset($match[4]) && $match[4]) $url .= '" title="' . substr($match[4], 2, -1);
 
-				return '<a href="' . $url . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				return '<a href="' . str_replace('-', '\-', $url) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
 			},
 			$content);
 	}
@@ -368,15 +411,13 @@ class Markdown {
 	 * replace blockquotes recursively
 	 * 
 	 * @param string $content
-	 * @param bool $recursion for altered behaviour on pattern relevant linbreak wrappers
 	 * @return string
 	 */
-	private function blockquote($content, $recursion = false){
+	private function blockquote($content){
 		$content = preg_replace_callback($this->_blockquote,
-			function($match) use ($recursion){
-				$match[0] = $this->nested_blocks(preg_replace(['/^> {0,1}|^ /m'], '', $match[0]), true); // remove blockquote character and possible whitespace and check recursively for nested blocks
-				if ($recursion) return '<p><blockquote class="eol1_md">' . $match[0] . "</blockquote></p>"; // fence with tags
-				return '<p><blockquote class="eol1_md">' . "\n" . $match[0] . "\n</blockquote></p>\n";
+			function($match){
+				$match[0] = $this->nested_blocks(preg_replace(['/^> {0,1}|^ /m'], '', $match[0])); // remove blockquote character and possible whitespace and check recursively for nested blocks
+				return '<p><blockquote class="eol1_md">' . $match[0] . "</blockquote></p>";
 			},
 			$content
 		);
@@ -394,19 +435,7 @@ class Markdown {
 		$code = $code[0];
 		if (!$code) return $content;
 		// split the content by found code blocks to later zip converted code blocks with content 
-		// this would work but may fail on longer readme-files with Compilation failed: regular expression is too large:
-		// $nocode = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $code)) . '/', $content);
-		$nocode = [];
-		foreach($code as $c){
-			// find in string
-			$pos = strpos($content, $c);
-			// add substring to nocode
-			$nocode[] = substr($content, 0, $pos);
-			// remove from content
-			$content = substr($content, $pos + strlen($c));
-		}
-		// add remainder
-		$nocode[] = $content;
+		$nocode = $this->separate($content, $code);
 
 		$escape = '/[#@*_~=^<[\]:|\-)' . preg_quote('\\', '/') . ']/';
 		for ($i = 0; $i < count($code); $i++){
@@ -624,7 +653,7 @@ class Markdown {
 	private function image($content){
 		return preg_replace_callback($this->_image,
 			function($match){
-				return '<img alt="' . str_replace('_', '\_', $match[1] ?: '') . '" src="' . str_replace('_', '\_', $match[2]) . '" class="eol1_md" />';
+				return '<img alt="' . str_replace('-', '\-', $match[1] ?: '') . '" src="' . str_replace('-', '\-', $match[2]) . '" class="eol1_md" />';
 			},
 			$content
 		);
@@ -744,27 +773,27 @@ class Markdown {
 	private function paragraph($content){
 		preg_match_all('/<code.*?code>/s', $content, $code);
 		$code = $code[0];
-		if (!$code) return preg_replace($this->_paragraph,
-			"<p>$1</p>\n",
-			$content);
+		if (!$code) return preg_replace_callback($this->_paragraph,
+			function($match) {
+				$match[0] = trim($match[0]);
+				preg_match('/^(<h|<ol|<ul|<p)/m', $match[0], $nop);
+				if ($nop) return $match[0];
+				return '<p>' . $match[0] . '</p>';
+			},
+			$content
+		);
 		// split the content by found code blocks to later zip code blocks with converted content 
-		// this would work but may fail on longer readme-files with Compilation failed: regular expression is too large:
-		// $nocode = preg_split('/' . implode('|', array_map(fn($v) => preg_quote($v, '/'), $code)) . '/', $content);
-		$nocode = [];
-		foreach($code as $c){
-			// find in string
-			$pos = strpos($content, $c);
-			// add substring to nocode
-			$nocode[] = substr($content, 0, $pos);
-			// remove from content
-			$content = substr($content, $pos + strlen($c));
-		}
-		// add remainder
-		$nocode[] = $content;
+		$nocode = $this->separate($content, $code);
 		for ($i = 0; $i < count($nocode); $i++){
-			$nocode[$i] = preg_replace($this->_paragraph,
-				"<p>$1</p>\n",
-				$nocode[$i]);
+			$nocode[$i] = preg_replace_callback($this->_paragraph,
+				function($match) {
+					$match[0] = trim($match[0]);
+					preg_match('/^(<h|<ol|<ul|<p)/m', $match[0], $nop);
+					if ($nop) return $match[0];
+					return '<p>' . $match[0] . '</p>';
+				},
+				$nocode[$i]
+			);
 		}
 		$content = [];
 		for ($i = 0;$i < count($nocode); $i++){
@@ -884,7 +913,7 @@ class Markdown {
 				$rows = explode("\n", $match[0]);
 				// get possible alignments for colums from delimiter row
 				$columns = array_filter(preg_split('/(?<!' . preg_quote('\\', '/'). ')\|/', $rows[1]), fn($c) => boolval(trim($c)));
-				$alignment = [null]; // offset for array_keys($columns) later 
+				$alignment = [];
 				foreach($columns as $column){
 					preg_match('/(:{0,1})-+(:{0,1})/', trim($column), $align);
 					if ($align[1] && $align[2]) $alignment[] = ' align="center"';
@@ -892,7 +921,8 @@ class Markdown {
 					elseif ($align[2]) $alignment[] = ' align="right"';
 					else $alignment[] = '';
 				}
-				$table = [];
+				$output = ($this->TCPDF ? '<br />' : '') . '<table class="eol1_md">';
+				$odd = 0; // enable odd class for tcpdf
 				foreach($rows as $rowindex => $row){
 					if (!$row) continue;
 					$columns = preg_split('/(?<!' . preg_quote('\\', '/'). ')\|/', $row);
@@ -902,14 +932,21 @@ class Markdown {
 						case 1:
 							break;
 						case 0:
-							$table[] = '<tr' . ($this->TCPDF && !(count($table) % 2) ? ' class="eol1\_odd"' : '') . '>' . implode('', array_map(fn($i, $column) => '<th' . ($alignment[$i] ?? '') . '>' . trim($column) . '</th>', array_keys($columns), $columns)) . '</tr>';
+							$output .= '<tr' . ($this->TCPDF && !($odd % 2) ? ' class="eol1\_odd"' : '') . '>';
+							for ($i = 0; $i < count($columns); $i++){
+								$output .= '<th' . ($alignment[$i] ?? '') . '>' . trim($columns[$i]) . '</th>';
+							}
+							$output .= '</tr>';
 							break;
 						default:
-							$table[] = '<tr' . ($this->TCPDF && !(count($table) % 2) ? ' class="eol1\_odd"' : '') . '>' . implode('', array_map(fn($i, $column) => '<td' . ($alignment[$i] ?? '') . '>' . trim($column) . '</td>', array_keys($columns), $columns)) . '</tr>';
+							$output .= '<tr' . ($this->TCPDF && !($odd % 2) ? ' class="eol1\_odd"' : '') . '>';
+							for ($i = 0; $i < count($columns); $i++){
+								$output .= '<td' . ($alignment[$i] ?? '') . '>' . trim($columns[$i]) . '</td>';
+							}
+							$output .= '</tr>';
 					}
+					$odd ++;
 				}
-				$output = ($this->TCPDF ? '<br />' : '') . '<table class="eol1_md">';
-				$output .= implode('', $table);
 				$output .= "</table>\n";
 				return $output;
 			},
