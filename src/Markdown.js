@@ -27,7 +27,6 @@ export class Markdown {
 	_compress = />\n+|\n *<|[^>]\n+<[^\/]/gm;
 	_definition = /(^.+?\n)((?:^: .+?\n)+)/gm;
 	_emphasis = /(?<!\\)(\*{1,3}(?! ))([^\n]+?)(?<!\\| )\1|(?<!\\|\S)(_{1,3}(?! ))([^\n]+?)(?<!\\| )\3(\W)/gm;
-	_escape = /\\(\*|-|\+|~|`|\.|@|\$|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||\\)/g;
 	_footnote = /\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/g;
 	_headings = /(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/gm; // must be first line or have a linebreak before
 	_horizontal_rule = /^ {0,3}(?:\-|\- |\*|\* ){3,}$/gm;
@@ -52,10 +51,11 @@ export class Markdown {
 	_references = {};
 	_limitTo = [];
 
-	// predefined character-sets to replace if required
-	_escaped = {
-		"&": "&amp;", // must remain the first ite
-		"$": "&#36;", // able to break code handling if not escaped, at least in ecmas
+	// predefined character-sets to escape or replace if required
+	_codeescape = "([*\\-\\+~`.@$>^[\\]()=_#:|\\d])";
+	_htmlescape = {
+		"&": "&amp;",
+		$: "&#36;", // able to break code handling if not escaped, at least in ecmas
 		"<": "&lt;",
 		">": "&gt;",
 		'"': "&quot;",
@@ -168,7 +168,6 @@ export class Markdown {
 		console.log(...content);
 	}
 
-
 	/**
 	 * replace escaped characters
 	 *
@@ -176,9 +175,9 @@ export class Markdown {
 	 * @returns string
 	 */
 	deescape(content) {
-		return content.replaceAll(this._escape, (...match) => {
-				return match[1];
-			});
+		return content.replaceAll(new RegExp("\\\\" + this._codeescape, "g"), (...match) => {
+			return match[1];
+		});
 	}
 
 	/**
@@ -189,10 +188,10 @@ export class Markdown {
 	 * @returns string
 	 */
 	escapeHtml(content, ampersand = true) {
-		let escape = this._escaped;
+		let escape = this._htmlescape;
 		if (!ampersand) delete escape["&"];
 		return content.replaceAll(new RegExp("[" + Object.keys(escape).join("") + "]", "g"), (m) => {
-			return this._escaped[m];
+			return this._htmlescape[m];
 		});
 	}
 
@@ -304,13 +303,13 @@ export class Markdown {
 		if (!code) return content;
 		// split the content by found code blocks to later zip converted code blocks with content
 		let nocode = this.separate(content, code),
-			escape = /[#@*_~=^<[\]:|\-\+)]/g;
+			escape = new RegExp(this._codeescape, "g");
 		for (let i = 0; i < code.length; i++) {
 			code[i] = code[i].replaceAll(this._code, (...match) => {
 				if (match[6]) {
 					// inline code
-					return `<code class="eol1_md">${this.escapeHtml(match[6]).replaceAll(escape, (e_match) => {
-						return `\\${e_match}`;
+					return `<code class="eol1_md">${this.escapeHtml(match[6]).replaceAll(escape, (...e_match) => {
+						return `\\${e_match[1]}`;
 					})}</code>`;
 				} else {
 					// match[2] for fenced code would be a specified language, not sure what to do with that yet
@@ -320,11 +319,13 @@ export class Markdown {
 						"\n" +
 						(match[4] ? "    " : "") + // to not mess up indentation within lists
 						`<code class="eol1_md"><pre class="eol1_md">${this.escapeHtml(codeblock)
-							.replaceAll(escape, (e_match) => {
-								return `\\${e_match}`;
+							.replaceAll(escape, (...e_match) => {
+								// escape above special chars
+								return `\\${e_match[1]}`;
 							})
-							.replaceAll("    ", "\t")}</pre></code>\n`
-					); // replace 4 spaces within code with tabs to avoid possible collisions
+							.replaceAll(/ {1,}$/gm, "") // delete end spaces that otherwise may be replaced with linebreak
+							.replaceAll("    ", "\t")}</pre></code>\n` // replace 4 spaces within code with tabs to avoid possible collisions
+					);
 				}
 			});
 		}

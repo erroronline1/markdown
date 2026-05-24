@@ -27,7 +27,6 @@ class Markdown {
 	private $_compress = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
 	private $_definition = '/(^.+?\n)((?:^: .+?\n)+)/m';
 		private $_emphasis = '/(?<!\\)(\*{1,3}(?! ))([^\n]+?)(?<!\\| )\1|(?<!\\|\S)(_{1,3}(?! ))([^\n]+?)(?<!\\| )\3(\W)/m'; // rewrite working regex101.com expression on construction for correct escaping of \
-		private $_escape = '/\\(\*|-|\+|~|`|\.|@|\$|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||\\)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
 	private $_horizontal_rule = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
@@ -52,8 +51,9 @@ class Markdown {
 	private $_references = [];
 	private $_limitTo = [];
 
-	// predefined character-sets to replace if required
-	public array $_escaped = [
+	// predefined character-sets to escape or replace if required
+	private $_codeescape = '([*\-\+~`.@$>^[\]()=_#:|\d])';
+	public array $_htmlescape = [
 		"&" => "&amp;",
 		"$" => "&#36;", // able to break code handling if not escaped, at least in ecmas
 		"<" => "&lt;",
@@ -120,7 +120,6 @@ class Markdown {
 		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
 		$this->_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!' . preg_quote('\\', '/') . ')(`{1,2})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\5/m';
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')(\*{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\1|(?<!' . preg_quote('\\', '/') . '|\S)(_{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\3(\W)/m';
-		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|\+|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||' . preg_quote('\\', '/') . ')/';
 		$this->_mailto = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
 		$this->_fontsize = '/(?<!' . preg_quote('\\', '/') . ')((?:\+|-){2,})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\1(?!((?:\+|-)))/';
 		$this->_reference = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m';
@@ -312,7 +311,7 @@ class Markdown {
 	 * @return string
 	 */
 	private function deescape($content){
-		return preg_replace($this->_escape,
+		return preg_replace('/' . preg_quote('\\', '/') . $this->_codeescape . '/',
 			'$1',
 			$content
 		);
@@ -326,11 +325,11 @@ class Markdown {
 	 * @return string
 	 */
 	private function escapeHtml($content, $ampersand = true){
-		$escape = $this->_escaped;
+		$escape = $this->_htmlescape;
 		if (!$ampersand) unset($escape['&']);
 		return preg_replace_callback('/[' . preg_quote(implode('', array_keys($escape)), '/') . ']/',
 			function($match) {
-				return $this->_escaped[$match[0]];
+				return $this->_htmlescape[$match[0]];
 			}, $content
 		);
 	}
@@ -462,7 +461,7 @@ class Markdown {
 		// split the content by found code blocks to later zip converted code blocks with content 
 		$nocode = $this->separate($content, $code);
 
-		$escape = '/[#@*_~=^<[\]:|\-\+)]/';
+		$escape = '/' . $this->_codeescape . '/';
 		for ($i = 0; $i < count($code); $i++){
 			$code[$i] = preg_replace_callback($this->_code,
 			function($match) use ($escape){
@@ -470,31 +469,32 @@ class Markdown {
 					// inline code
 					if ($this->TCPDF) return '<span style="font-family: monospace;">' . preg_replace_callback($escape,
 						function ($e_match) {
-							return '\\' . $e_match[0];
+							return '\\' . $e_match[1];
 						},
 						$this->escapeHtml($match[6])) . '</span>'; // current implementation of tcpdf does not support code
 					
 					return '<code class="eol1_md">' . preg_replace_callback($escape,
 						function ($e_match) {
-							return '\\' . $e_match[0];
+							return '\\' . $e_match[1];
 						},
 						$this->escapeHtml($match[6])) . '</code>';
 				}
 				else {
-				// $match[2] for fenced code would be a specified language, not sure what to do with that yet
-				// if match[4] code blocks are written with pure indentation
-				$codeblock = isset($match[4]) ? preg_replace('/^ {4}/m', '', $match[0]) : $match[3];
-					if ($this->TCPDF) return "\n" . (isset($match[4]) ? '    ' : '') . '<pre class="eol1_md">' . str_replace('    ', "\t", preg_replace_callback($escape,
+					// $match[2] for fenced code would be a specified language, not sure what to do with that yet
+					// if match[4] code blocks are written with pure indentation
+					$codeblock = isset($match[4]) ? preg_replace('/^ {4}/m', '', $match[0]) : $match[3];
+					$codeblock = preg_replace_callback($escape, // escape above special chars
 						function ($e_match) {
-							return '\\' . $e_match[0];
+							return '\\' . $e_match[1];
 						},
-						$this->escapeHtml($codeblock))) . "</pre>\n"; // replace 4 spaces within code with tabs to avoid possible collisions
+						$this->escapeHtml($codeblock)
+					);
+					$codeblock = preg_replace('/ {1,}$/m', '', $codeblock); // delete end spaces that otherwise may be replaced with linebreak
+					$codeblock = str_replace('    ', "\t", $codeblock); // replace 4 spaces within code with tabs to avoid possible collisions
+
+					if ($this->TCPDF) return "\n" . (isset($match[4]) ? '    ' : '') . '<pre class="eol1_md">' . $codeblock . "</pre>\n";
 					
-					return "\n" . (isset($match[4]) ? '    ' : '') . '<code class="eol1_md"><pre class="eol1_md">' . str_replace('    ', "\t", preg_replace_callback($escape,
-						function ($e_match) {
-							return '\\' . $e_match[0];
-						},
-						$this->escapeHtml($codeblock))) . "</pre></code>\n"; // replace 4 spaces within code with tabs to avoid possible collisions
+					return "\n" . (isset($match[4]) ? '    ' : '') . '<code class="eol1_md"><pre class="eol1_md">' . $codeblock . "</pre></code>\n";
 				} 
 			},
 			$code[$i]);
