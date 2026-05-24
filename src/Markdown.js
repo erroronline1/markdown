@@ -1,11 +1,5 @@
-/**
- * [Markdown](https://github.com/erroronline1/markdown)
- * Copyright (C) 2026 error on line 1 (dev@erroronline.one)
- *
- * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details.
- * You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileNotice: Part of erroronline1/markdown parser for PHP & ECMA-Script.
 
 class ListTypeGenerator {
 	/**
@@ -26,9 +20,10 @@ export class Markdown {
 	// likely imperfect hack to include literal unicode characters within headers as these are currently not matched by \w
 	_unicode_regex = "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿŒœŠšŸƒ";
 
-	_anchor = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
+	_anchor = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel|javascript):(?:\/\/)*[^\n\s,"'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
 	_blockquote = /(^>{1,}.*?\n$)+/gms;
 	_code = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/gm;
+	_comment = /<!--.*?--(?<!\\)>/gms;
 	_compress = />\n+|\n *<|[^>]\n+<[^\/]/gm;
 	_definition = /(^.+?\n)((?:^: .+?\n)+)/gm;
 	_emphasis = /(?<!\\)(\*{1,3}(?! ))([^\n]+?)(?<!\\| )\1|(?<!\\|\S)(_{1,3}(?! ))([^\n]+?)(?<!\\| )\3(\W)/gm;
@@ -42,7 +37,7 @@ export class Markdown {
 	_list = /((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/gm;
 	_mailto = /([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/g;
 	_mark = /==(.+?)==/g;
-	_paragraph = /(?:^$\n)((?<!^<)(?:(.))+?)(?:\n^$)/gim;
+	_paragraph = /(?:^$\n)(.+?)(?:\n^$)/gms;
 	_reference = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/gm;
 	_safeMode = /<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=('|").+?(?<!\\)\2/gi;
 	_strikethrough = /(?<!\\)~{2}([^\n]+?)(?<!\\| |\n)~{2}/g;
@@ -108,27 +103,46 @@ export class Markdown {
 	 * entry method to convert a text to markdown
 	 *
 	 * @param {string} text to convert from markdown to html
-	 * @param {boolean} safeMode returns anchors as specialchars
+	 * @param {boolean} safeMode returns anchors as specialchars and some
 	 * @param (array) limitTo process only given methods, empty for all
 	 * @returns {string}
 	 */
 	md2html(text = "", safeMode = false, limitTo = []) {
 		this._limitTo = limitTo;
-		text = text.replaceAll(/\r/g, "").replaceAll(/\t/g, "    ") + "\n"; // add a new line for improved pattern matching by default
 
-		// ensure a proper processing order
+		let comment = text.match(this._comment);
+		if (!comment) return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" + this.md2html_block(text, safeMode);
+		// split the content by found comment blocks to later zip converted content blocks with comment
+		let content = this.separate(text, comment);
+		for (let i = 0; i < content.length; i++) {
+			content[i] = this.md2html_block(content[i], safeMode);
+		}
+		text = [];
+		for (let i = 0; i < content.length; i++) {
+			text.push(content[i], comment[i] || "");
+		}
+		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" + text.join("");
+	}
+
+	/**
+	 * convert text blocks to markdown passed by entry point, excluding comments and what's else to come
+	 *
+	 * @param {string} text to convert from markdown to html
+	 * @param {boolean} safeMode returns anchors as specialchars and some
+	 * @returns {string}
+	 */
+	md2html_block(text = "", safeMode = false) {
+		text = text.replaceAll(/\r/g, "").replaceAll(/\t/g, "    ") + "\n"; // add a new line for improved pattern matching by default
 		this._methodsInProcessingOrder.forEach((method) => {
-			if (!limitTo.length || limitTo.includes(method) || (safeMode && ["anchor", "safeMode", "reference", "mailto"].includes(method))) {
+			if (!this._limitTo.length || this._limitTo.includes(method) || (safeMode && ["anchor", "safeMode", "reference", "mailto"].includes(method))) {
 				if (["anchor", "safeMode", "reference", "mailto"].includes(method)) text = this[method](text, safeMode);
 				else text = this[method](text);
 			}
 		});
-
 		text = this.escape(text); // should come after other stylings have been applied
 		text = this.compress(text);
 		text = text.replaceAll(/\t/g, "    "); // revert code indentation
-
-		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" + text;
+		return text;
 	}
 
 	/**
@@ -140,8 +154,7 @@ export class Markdown {
 	nested_blocks(content) {
 		this._nested_blocks.forEach((method) => {
 			if (!this._limitTo.length || this._limitTo.includes(method))
-				if (["blockquote"].includes(method)) content = this[method](content, true);
-				else content = this[method](content);
+				content = this[method](content);
 		});
 		return content;
 	}
@@ -177,6 +190,18 @@ export class Markdown {
 	}
 
 	/**
+	 * split the content by found blocks to later zip converted content blocks with separator blocks
+	 * 
+	 * @param {string} content
+	 * @param {array} by
+	 * @return array
+	 */
+	separate(content, by = []){
+		// due to the nature of preg-match results, patterns did not proof suitable for splitting. must be literals
+		return content.split(new RegExp(by.map((v) => RegExp.escape(v)).join("|"), "g"));
+	}
+
+	/**
 	 * replaces links unless already converted by the reference-method or external links in safeMode
 	 * internal links are always rendered since considerable safe
 	 *
@@ -191,9 +216,9 @@ export class Markdown {
 				let code = uccontent.match(/<code.*?code>|<img.+\/>/g);
 				if (!code) return this.escapeHtml(uccontent);
 				// split the content by found code blocks to later zip code blocks with converted content
-				let nocode = uccontent.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g"));
+				let nocode = this.separate(uccontent, code);
 				for (let i = 0; i < nocode.length; i++) {
-					nocode[i] = this.escapeHtml(nocode[i]);
+					nocode[i] = this.escapeHtml(nocode[i]).replace(/-/g, "\\-");
 				}
 				uccontent = [];
 				for (let i = 0; i < nocode.length; i++) {
@@ -205,15 +230,14 @@ export class Markdown {
 			if (match[1] && Object.values(_references).indexOf(match[1]) > -1) return match[1]; // avoid duplication of link creation from references
 
 			// markdown linking, allow internal links
-			if (match[3] && match[3].startsWith("#")) return `<a href="${match[3]}" class="eol1_md">${unescapedCode(match[2])}</a>`;
+			if (match[3] && match[3].startsWith("#")) return `<a href="${match[3].replace(/-/g, "\\-")}" class="eol1_md">${unescapedCode(match[2])}</a>`;
 
 			if (safeMode) return unescapedCode(match[0]);
 			// auto linking with protocols
-			if (match[1]) return `<a href="${match[1]}" class="eol1_md">${unescapedCode(match[1])}</a>`;
+			if (match[1]) return `<a href="${match[1].replace(/-/g, "\\-")}" class="eol1_md">${unescapedCode(match[1])}</a>`;
 			//markdown linking
 			let url = "";
 			if (match[3].startsWith("javascript:")) url = match[3];
-			else if (match[3].startsWith("#")) url = match[3];
 			else {
 				let component = new URLSearchParams(match[3]);
 				if (component.keys().length) {
@@ -222,7 +246,7 @@ export class Markdown {
 				//url += '" target="_blank';
 			}
 			if (match[4]) url += '" title="' + match[4].substring(2, match[4].length - 1);
-			return `<a href="${url}" class="eol1_md">${unescapedCode(match[2])}</a>`;
+			return `<a href="${url.replace(/-/g, "\\-")}" class="eol1_md">${unescapedCode(match[2])}</a>`;
 		});
 	}
 
@@ -230,14 +254,12 @@ export class Markdown {
 	 * replace blockquotes recursively
 	 *
 	 * @param {string} content
-	 * @param {boolean} recursion for altered behaviour on pattern relevant linbreak wrappers
 	 * @returns string
 	 */
-	blockquote(content, recursion = false) {
+	blockquote(content) {
 		return content.replaceAll(this._blockquote, (...match) => {
-			match[0] = this.nested_blocks(match[0].replaceAll(/^> {0,1}|^ /gm, ""), true); // remove blockquote character and possible whitespace and check recursively for nested blocks
-			if (recursion) return `<p><blockquote class="eol1_md">${match[0]}</blockquote></p>`; // fence with tags
-			return `<p><blockquote class="eol1_md">\n${match[0]}\n</blockquote></p>\n`;
+			match[0] = this.nested_blocks(match[0].replaceAll(/^> {0,1}|^ /gm, "")); // remove blockquote character and possible whitespace and check recursively for nested blocks
+			return `<p><blockquote class="eol1_md">${match[0]}</blockquote></p>`;
 		});
 	}
 
@@ -251,7 +273,7 @@ export class Markdown {
 		let code = content.match(this._code);
 		if (!code) return content;
 		// split the content by found code blocks to later zip converted code blocks with content
-		let nocode = content.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g")),
+		let nocode = this.separate(content, code),
 			escape = /[#@*_~=^<[\]:|\-)\\]/g;
 		for (let i = 0; i < code.length; i++) {
 			code[i] = code[i].replaceAll(this._code, (...match) => {
@@ -434,7 +456,7 @@ export class Markdown {
 	 */
 	image(content) {
 		return content.replaceAll(this._image, (...match) => {
-			return `<img alt="${(match[1] || "").replaceAll(/_/g, "\\_")}" src="${match[2].replaceAll(/_/g, "\\_")}" class="eol1_md" />`;
+			return `<img alt="${(match[1] || "").replaceAll(/-/g, "\\-")}" src="${match[2].replaceAll(/-/g, "\\-")}" class="eol1_md" />`;
 		});
 	}
 
@@ -531,11 +553,19 @@ export class Markdown {
 	 */
 	paragraph(content) {
 		let code = content.match(/<code.*?code>/gs);
-		if (!code) return content.replaceAll(this._paragraph, "<p>$1</p>\n");
+		if (!code) return content.replaceAll(this._paragraph, (...match) => {
+			match[0] = match[0].trim();
+			if (match[0].match(/^(<h|<ol|<ul|<p)/m)) return match[0];
+			return `<p>${match[0]}</p>`;
+		});
 		// split the content by found code blocks to later zip code blocks with converted content
-		let nocode = content.split(new RegExp(code.map((v) => RegExp.escape(v)).join("|"), "g"));
+		let nocode = this.separate(content,code);
 		for (let i = 0; i < nocode.length; i++) {
-			nocode[i] = nocode[i].replaceAll(this._paragraph, "<p>$1</p>\n");
+			nocode[i] = nocode[i].replaceAll(this._paragraph, (...match) => {
+				match[0] = match[0].trim();
+				if (match[0].match(/^(<h|<ol|<ul|<p)/m)) return match[0];
+				return `<p>${match[0]}</p>`;
+			});
 		}
 		content = [];
 		for (let i = 0; i < nocode.length; i++) {
