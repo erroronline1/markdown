@@ -21,13 +21,13 @@ class ListTypeGenerator{
 
 class Markdown {
 		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
-	private $_blockquote = '/(^>{1,}.*?\n$)+/ms';
+	private $_blockquote = '/(^>{1,}.*?\n)+/ms';
 		private $_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/m'; // rewrite working regex101.com expression on construction for correct escaping of \
-	private $_comment = '/<!--.*?-->/ms';
+	private $_comment = '/<!--.*?-->/s';
 	private $_compress = '/>\n+|\n *<|[^>]\n+<[^\/]/m';
 	private $_definition = '/(^.+?\n)((?:^: .+?\n)+)/m';
 		private $_emphasis = '/(?<!\\)(\*{1,3}(?! ))([^\n]+?)(?<!\\| )\1|(?<!\\|\S)(_{1,3}(?! ))([^\n]+?)(?<!\\| )\3(\W)/m'; // rewrite working regex101.com expression on construction for correct escaping of \
-		private $_escape = '/\\(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||\\)/'; // rewrite working regex101.com expression on construction for correct escaping of \
+		private $_escape = '/\\(\*|-|\+|~|`|\.|@|\$|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||\\)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_footnote = '/\[\^(.+?)\](:.+?\n(?: {4}.*?\n)*)*/';
 	private $_headings = '/(?:^)(#+ )(.+?)(?: {#(.+?)}){0,1}(?:#*)$|(?:^)(.+?)\n(={3,}|-{3,})$/m'; // must be first line or have a linebreak before
 	private $_horizontal_rule = '/^ {0,3}(?:\-|\- |\*|\* ){3,}$/m';
@@ -55,6 +55,7 @@ class Markdown {
 	// predefined character-sets to replace if required
 	public array $_escaped = [
 		"&" => "&amp;",
+		"$" => "&#36;", // able to break code handling if not escaped, at least in ecmas
 		"<" => "&lt;",
 		">" => "&gt;",
 		'"' => "&quot;",
@@ -119,7 +120,7 @@ class Markdown {
 		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
 		$this->_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!' . preg_quote('\\', '/') . ')(`{1,2})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\5/m';
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')(\*{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\1|(?<!' . preg_quote('\\', '/') . '|\S)(_{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\3(\W)/m';
-		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||' . preg_quote('\\', '/') . ')/';
+		$this->_escape = '/' . preg_quote('\\', '/') . '(\*|-|\+|~|`|\.|@|>|\^|\[|\]|\(|\)|\||=|_|#|:|\||' . preg_quote('\\', '/') . ')/';
 		$this->_mailto = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
 		$this->_fontsize = '/(?<!' . preg_quote('\\', '/') . ')((?:\+|-){2,})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\1(?!((?:\+|-)))/';
 		$this->_reference = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m';
@@ -238,76 +239,47 @@ class Markdown {
 	public function md2html($text, $safeMode = false, $limitTo = []){
 		$this->_limitTo = $limitTo;
 
-		// split by comments that are not to be converted
-		preg_match_all($this->_comment, $text, $comment);
-		$comment = $comment[0];
-		if (!$comment) return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $this->md2html_block($text, $safeMode);
-		
-		// split the content by found comment blocks to later zip converted content blocks with comment 
-		$content = $this->separate($text, $comment);
-		for ($i = 0; $i < count($content); $i++){
-			$content[$i] = $this->md2html_block($content[$i], $safeMode);
-		}
-		$text = [];
-		for ($i = 0;$i < count($content); $i++){
-			array_push($text, $content[$i], $comment[$i] ?? '');
-		}
-		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . implode('', $text);
-	}
-
-	/**
-	 * convert text blocks to markdown passed by entry point, excluding comments and what's else to come
-	 * 
-	 * @param string $text Markdown styled
-	 * @param bool $safeMode returns anchors as specialchars and some
-	 * @return string as HTML
-	 */
-	private function md2html_block($text, $safeMode = false) {
 		$text = preg_replace(['/\r/','/\t/'], ['', '    '], $text ?: '') . "\n"; // add a new line for improved pattern matching by default
+
+		// detect all comments and replace them with a numbered placeholder to not mess up formatting
+		$comment_placeholder = 'eol1_md_comment_placeholder_' . substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 10) . '_';
+		preg_match_all($this->_comment, $text, $comments);
+		if ($comments){
+			$comments = $comments[0];
+			foreach($comments as $i => $comment){
+				$text = str_replace($comment, $comment_placeholder . $i, $text);
+			}
+		}
+		// apply methods
 		foreach ($this->_methodsInProcessingOrder as $method) {
 			if (!$this->_limitTo || in_array($method, $this->_limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference", "mailto"]))) {
 				if (in_array($method, ["anchor", "safeMode", "reference", "mailto"])) $text = $this->$method($text, $safeMode);
 				else $text = $this->$method($text);
 			}
 		}
-		$text = $this->escape($text); // should come after other stylings have been applied
+		$text = $this->deescape($text); // should come after other stylings have been applied
 		$text = $this->compress($text);
-		$text = preg_replace(['/\t/'], ['    '], $text); // revert code indentation
-		return $text;
-	}
 
-	/**
-	 * methods to run within nested elements like lists and footnotes
-	 * 
-	 * @param string $content
-	 * @return string
-	 */
-	private function nested_blocks($content){
-		foreach($this->_nested_blocks as $method){
-			if (!$this->_limitTo || in_array($method, $this->_limitTo)){
-				$content = $this->$method($content);
+		// revert comments
+		if ($comments){
+			$text = preg_replace_callback('/' . $comment_placeholder . '(\\d+)/',
+				function ($match) use ($comments) {
+					return $comments[$match[1]] ?? $match[0];
+				},
+				$text
+			);
+			if (!$this->_limitTo || in_array('code', $this->_limitTo)){
+			$text = preg_replace_callback('/<code.*?>(?:<pre.*?>)*(.+?)(?:<\/pre>)*<\/code>/s',
+				function ($match) {
+					return str_replace($match[1], $this->escapeHtml($match[1], false), $match[0]);
+				},
+				$text
+			);
+
 			}
-		};
-		return $content;
-	}
-
-	/**
-	 * escape special chars for code, pre and in case of safeMode
-	 * </p>
-	 * @param string $content
-	 * @return string
-	 */
-	private function escapeHtml($content){
-		if (str_starts_with($content, "<code") && str_ends_with($content, "code>")) return $content;
-		return str_replace(array_keys($this->_escaped), array_values($this->_escaped), $content);
-	}
-
-	/**
-	 * development helper...
-	 * @param mixed $content
-	 */
-	private function debug(...$content){
-		echo "<pre>"; var_dump(...$content); echo "</pre>";
+		}
+		$text = preg_replace(['/\t/'], ['    '], $text); // revert code indentation
+		return "<!-- Markdown parsing by error on line 1, https://github.com/erroronline1/markdown -->\n" . $text;
 	}
 
 	/**
@@ -323,6 +295,59 @@ class Markdown {
 			},
 			$content
 		);
+	}
+
+	/**
+	 * development helper...
+	 * @param mixed $content
+	 */
+	private function debug(...$content){
+		echo "<pre>"; var_dump(...$content); echo "</pre>";
+	}
+
+	/**
+	 * replace escaped characters
+	 * 
+	 * @param string $content
+	 * @return string
+	 */
+	private function deescape($content){
+		return preg_replace($this->_escape,
+			'$1',
+			$content
+		);
+	}
+
+	/**
+	 * escape special chars for code, pre and in case of safeMode
+	 * </p>
+	 * @param string $content
+	 * @param bool $ampersand can be excluded to avoid duplicate encoding
+	 * @return string
+	 */
+	private function escapeHtml($content, $ampersand = true){
+		$escape = $this->_escaped;
+		if (!$ampersand) unset($escape['&']);
+		return preg_replace_callback('/[' . preg_quote(implode('', array_keys($escape)), '/') . ']/',
+			function($match) {
+				return $this->_escaped[$match[0]];
+			}, $content
+		);
+	}
+
+	/**
+	 * methods to run within nested elements like lists and footnotes
+	 * 
+	 * @param string $content
+	 * @return string
+	 */
+	private function nested_blocks($content){
+		foreach($this->_nested_blocks as $method){
+			if (!$this->_limitTo || in_array($method, $this->_limitTo)){
+				$content = $this->$method($content);
+			}
+		};
+		return $content;
 	}
 
 	/**
@@ -369,7 +394,7 @@ class Markdown {
 			// split the content by found code blocks to later zip code blocks with converted content 
 			$nocode = $this->separate($uccontent, $code);
 			for ($i = 0; $i < count($nocode); $i++){
-				$nocode[$i] = str_replace('-', '\-', $this->escapeHtml($nocode[$i]));
+				$nocode[$i] = preg_replace('/[\-\+]/', '\\\\$0', $this->escapeHtml($nocode[$i]));
 			}
 			$uccontent = [];
 			for ($i = 0;$i < count($nocode); $i++){
@@ -382,12 +407,12 @@ class Markdown {
 				if (in_array($match[1], $_references)) return $match[1]; // avoid duplication of link creation from references
 
 				// markdown linking, allow internal links
-				if (isset($match[3]) && str_starts_with($match[3], '#')) return '<a href="' . str_replace('-', '\-', $match[3]) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				if (isset($match[3]) && str_starts_with($match[3], '#')) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[3]) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
 
 				if ($safeMode) return $unescapedCode($match[0]);
 
 				// auto linking with protocols
-				if ($match[1]) return '<a href="' . str_replace('-', '\-', $match[1]) . '" class="eol1_md">' . $unescapedCode($match[1]) . '</a>';
+				if ($match[1]) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[1]) . '" class="eol1_md">' . $unescapedCode($match[1]) . '</a>';
 				//markdown linking
 				$url = '';
 				if (str_starts_with($match[3], 'javascript:')) $url = $match[3];
@@ -402,7 +427,7 @@ class Markdown {
 				}
 				if (isset($match[4]) && $match[4]) $url .= '" title="' . substr($match[4], 2, -1);
 
-				return '<a href="' . str_replace('-', '\-', $url) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $url) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
 			},
 			$content);
 	}
@@ -416,7 +441,7 @@ class Markdown {
 	private function blockquote($content){
 		$content = preg_replace_callback($this->_blockquote,
 			function($match){
-				$match[0] = $this->nested_blocks(preg_replace(['/^> {0,1}|^ /m'], '', $match[0])); // remove blockquote character and possible whitespace and check recursively for nested blocks
+				$match[0] = $this->nested_blocks(preg_replace(['/^> {0,1}/m'], '', $match[0])); // remove blockquote character and possible whitespace and check recursively for nested blocks
 				return '<p><blockquote class="eol1_md">' . $match[0] . "</blockquote></p>";
 			},
 			$content
@@ -437,7 +462,7 @@ class Markdown {
 		// split the content by found code blocks to later zip converted code blocks with content 
 		$nocode = $this->separate($content, $code);
 
-		$escape = '/[#@*_~=^<[\]:|\-)' . preg_quote('\\', '/') . ']/';
+		$escape = '/[#@*_~=^<[\]:|\-\+)]/';
 		for ($i = 0; $i < count($code); $i++){
 			$code[$i] = preg_replace_callback($this->_code,
 			function($match) use ($escape){
@@ -463,7 +488,7 @@ class Markdown {
 						function ($e_match) {
 							return '\\' . $e_match[0];
 						},
-						$this->escapeHtml($codeblock))) . "</pre>\n";
+						$this->escapeHtml($codeblock))) . "</pre>\n"; // replace 4 spaces within code with tabs to avoid possible collisions
 					
 					return "\n" . (isset($match[4]) ? '    ' : '') . '<code class="eol1_md"><pre class="eol1_md">' . str_replace('    ', "\t", preg_replace_callback($escape,
 						function ($e_match) {
@@ -518,19 +543,6 @@ class Markdown {
 				];
 				return $tags[$wrapper][0] . $this->emphasis($match[2] ?: $match[4]) . $tags[$wrapper][1] . (isset($match[5]) ? $match[5] : ''); // append consumed nonword-character on underscore pattern
 			},
-			$content
-		);
-	}
-
-	/**
-	 * replace escaped characters
-	 * 
-	 * @param string $content
-	 * @return string
-	 */
-	private function escape($content){
-		return preg_replace($this->_escape,
-			'$1',
 			$content
 		);
 	}
@@ -653,7 +665,7 @@ class Markdown {
 	private function image($content){
 		return preg_replace_callback($this->_image,
 			function($match){
-				return '<img alt="' . str_replace('-', '\-', $match[1] ?: '') . '" src="' . str_replace('-', '\-', $match[2]) . '" class="eol1_md" />';
+				return '<img alt="' . preg_replace('/[\-\+]/', '\\\\$0', $match[1] ?: '') . '" src="' . preg_replace('/[\-\+]/', '\\\\$0', $match[2]) . '" class="eol1_md" />';
 			},
 			$content
 		);
