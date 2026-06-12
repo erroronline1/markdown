@@ -21,7 +21,7 @@ export class Markdown {
 	// likely imperfect hack to include literal unicode characters within headers as these are currently not matched by \w
 	_unicode_regex = "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿŒœŠšŸƒ";
 
-	_anchor = /(?<!\]\()(?:\<{0,1})(?<!'|"|`)((?:https*|ftps*|tel|javascript):(?:\/\/)*[^\n\s,"'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
+	_anchor = /(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel|mailto):(?:\/\/)*([^\n\s,"\'`<>]+))(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/gi; // auto url linking, including some schemes and md linking
 	_blockquote = /(^>{1,}.*?\n)+/gms;
 	_code = /^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/gm;
 	_comment = /<!--.*?-->/gs;
@@ -35,7 +35,6 @@ export class Markdown {
 	_fontsize = /(?<!\\)((?:\+|-){2,})([^\n]+?)(?<!\\| |\n)\1(?!((?:\+|-)))/g;
 	_linebreak = / +\n/g;
 	_list = /((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/gm;
-	_mailto = /([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/g;
 	_mark = /==(.+?)==/g;
 	_paragraph = /(?:^$\n)(.+?)(?:\n^$)/gms;
 	_reference = /(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/gm;
@@ -86,7 +85,6 @@ export class Markdown {
 		"table",
 		"image", // prior to anchor for properly linkable images
 		"anchor", // safeMode can not render anchors to avoid malicious scripts
-		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"task",
 		"mark",
 		"strikethrough",
@@ -124,9 +122,12 @@ export class Markdown {
 		}
 		// apply methods
 		this._methodsInProcessingOrder.forEach((method) => {
-			if (!this._limitTo.length || this._limitTo.includes(method) || (safeMode && ["anchor", "safeMode", "reference", "mailto"].includes(method))) {
-				if (["anchor", "safeMode", "reference", "mailto"].includes(method)) text = this[method](text, safeMode);
-				else text = this[method](text);
+			if (!this._limitTo.length || this._limitTo.includes(method) || (safeMode && ["anchor", "safeMode", "reference"].includes(method))) {
+				if (this[method]) {
+					// backward compatibility handling without raising errors
+					if (["anchor", "safeMode", "reference"].includes(method)) text = this[method](text, safeMode);
+					else text = this[method](text);
+				}
 			}
 		});
 		text = this.deescape(text); // should come after other stylings have been applied
@@ -252,31 +253,31 @@ export class Markdown {
 			if (match[1] && Object.values(_references).indexOf(match[1]) > -1) return match[1]; // avoid duplication of link creation from references
 
 			// markdown linking, allow internal links
-			if (match[3] && match[3].startsWith("#"))
-				return `<a href="${match[3].replace(/[\-\+]/g, (match) => {
+			if (match[4] && match[4].startsWith("#"))
+				return `<a href="${match[4].replace(/[\-\+]/g, (match) => {
 					return `\\${match}`;
-				})}" class="eol1_md">${unescapedCode(match[2])}</a>`;
+				})}" class="eol1_md">${unescapedCode(match[3])}</a>`;
 
 			if (safeMode) return unescapedCode(match[0]);
 			// auto linking with protocols
 			if (match[1])
 				return `<a href="${match[1].replace(/[\-\+]/g, (match) => {
 					return `\\${match}`;
-				})}" class="eol1_md">${unescapedCode(match[1])}</a>`;
+				})}" class="eol1_md">${unescapedCode(match[2])}</a>`;
 			//markdown linking
 			let url = "";
-			if (match[3].startsWith("javascript:")) url = match[3];
+			if (match[4].startsWith("javascript:")) url = match[4];
 			else {
-				let component = new URLSearchParams(match[3]);
+				let component = new URLSearchParams(match[4]);
 				if (component.keys().length) {
-					url = match[3].substring(0, match[3].indexOf("?")) + "?" + component.toString();
-				} else url = match[3];
+					url = match[4].substring(0, match[4].indexOf("?")) + "?" + component.toString();
+				} else url = match[4];
 				//url += '" target="_blank';
 			}
-			if (match[4]) url += '" title="' + match[4].substring(2, match[4].length - 1);
+			if (match[5]) url += '" title="' + match[5].substring(2, match[5].length - 1);
 			return `<a href="${url.replace(/[\-\+]/g, (match) => {
 				return `\\${match}`;
-			})}" class="eol1_md">${unescapedCode(match[2])}</a>`;
+			})}" class="eol1_md">${unescapedCode(match[3])}</a>`;
 		});
 	}
 
@@ -544,21 +545,6 @@ export class Markdown {
 			content = this.nested_blocks(content);
 		}
 		return content;
-	}
-
-	/**
-	 * replace email adresses with mailto link unless in safeMode
-	 * no encoding, since the adress is already at the client anyway
-	 *
-	 * @param {string} content
-	 * @param {boolean} safeMode
-	 * @returns string
-	 */
-	mailto(content, safeMode = false) {
-		return content.replaceAll(this._mailto, (...match) => {
-			if (safeMode) return this.escapeHtml(match[0]);
-			return `<a href="mailto:${match[0]}">${this.escapeHtml(match[0])}</a>`;
-		});
 	}
 
 	/**

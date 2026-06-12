@@ -25,9 +25,8 @@ Releases follow [Semantic Versioning](https://semver.org):
 * PATCH - backwards-compatible bug fixes
 
 ## Extended Features
-* Link auto-detection, as well as tel- and ftp-protocol
+* Link auto-detection, as well as tel-, ftp- and mailto-protocol
 * Markdown link titles
-* Auto-mailto
 * Escaping code by double-backticks too
 * Subscript, superscript and mark
 * Custom header ids, as well as auto assigning referable ids to headers

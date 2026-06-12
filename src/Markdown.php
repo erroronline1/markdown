@@ -21,7 +21,7 @@ class ListTypeGenerator{
 }
 
 class Markdown {
-		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
+		private $_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel|mailto):(?:\/\/)*([^\n\s,"\'`<>]+))(?:\>{0,1})|(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!\\)\)(?!\)))/im'; // auto url linking, including some schemes and md linking; rewrite working regex101.com expression on construction for correct escaping of \
 	private $_blockquote = '/(^>{1,}.*?\n)+/ms';
 		private $_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!\\)(`{1,2})([^\n]+?)(?<!\\| |\n)\5/m'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_comment = '/<!--.*?-->/s';
@@ -35,7 +35,6 @@ class Markdown {
 		private $_fontsize = '/(?<!\\)((?:\+|-){2,})([^\n]+?)(?<!\\| |\n)\1(?!((?:\+|-)))/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_linebreak = '/ +\n/';
 	private $_list = '/((?:^)(\*|\-|\+|\d+\.) {1,3}(?:.|\n)+?)(?:\n$)/m';
-		private $_mailto = '/([^\s<]+(?<!\\)@[^\s<]+\.[^\s<]+)/'; // rewrite working regex101.com expression on construction for correct escaping of \
 	private $_mark = '/==(.+?)==/';
 	private $_paragraph = '/(?:^$\n)(.+?)(?:\n^$)/ms';
 		private $_reference = '/(?:(?<!!|\\)\[)(.+?)(?:(?<!\\)\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m'; // rewrite working regex101.com expression on construction for correct escaping of \
@@ -86,7 +85,6 @@ class Markdown {
 		"table",
 		"image", // prior to anchor for properly linkable images
 		"anchor", // safeMode can not render anchors to avoid malicious scripts
-		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"task",
 		"mark",
 		"strikethrough",
@@ -119,10 +117,9 @@ class Markdown {
 	public function __construct($TCPDF = 0)
 	{
 		// rewrite working regex101.com expression on construction for correct escaping of \
-		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel):(?:\/\/)*[^\n\s,"\'`<>]+)(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
+		$this->_anchor = '/(?<!\]\()(?:\<{0,1})(?<!\'|"|`)((?:https*|ftps*|tel|mailto):(?:\/\/)*([^\n\s,"\'`<>]+))(?:\>{0,1})|(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\()(.+?)((?: \").+(?:\"))*(?:(?<!' . preg_quote('\\', '/') . ')\)(?!\)))/m'; // regular md links
 		$this->_code = '/^ {0,3}([`~]{3})(.*?)\n((?:.|\n)+?)\n^ {0,3}\1\n|^\n^ {4}([^\*\-\d].+)+|(?<!' . preg_quote('\\', '/') . ')(`{1,2})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\5/m';
 		$this->_emphasis = '/(?<!' . preg_quote('\\', '/') . ')(\*{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\1|(?<!' . preg_quote('\\', '/') . '|\S)(_{1,3}(?! ))([^\n]+?)(?<!' . preg_quote('\\', '/') . '| )\3(\W)/m';
-		$this->_mailto = '/([^\s<]+(?<!' . preg_quote('\\', '/') . ')@[^\s<]+\.[^\s<]+)/';
 		$this->_fontsize = '/(?<!' . preg_quote('\\', '/') . ')((?:\+|-){2,})([^\n]+?)(?<!' . preg_quote('\\', '/') . '| |\n)\1(?!((?:\+|-)))/';
 		$this->_reference = '/(?:(?<!!|' . preg_quote('\\', '/') . ')\[)(.+?)(?:(?<!' . preg_quote('\\', '/') . ')\])(?:\[)(.+?)(?:\])|(?:^\[)([^^]+?)(?:\]:)(.+)$/m';
 		$this->_safeMode = '/<\/{0,1} {0,}(a|applet|audio|body|dialog|form|html|iframe|input|keygen|main|noscript|object|param|script|style|title|textarea|video|xmp)|on\w+?=(\'|").+?(?<!' . preg_quote('\\', '/') . ')\2/mi';
@@ -253,9 +250,12 @@ class Markdown {
 		}
 		// apply methods
 		foreach ($this->_methodsInProcessingOrder as $method) {
-			if (!$this->_limitTo || in_array($method, $this->_limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference", "mailto"]))) {
-				if (in_array($method, ["anchor", "safeMode", "reference", "mailto"])) $text = $this->$method($text, $safeMode);
-				else $text = $this->$method($text);
+			if (!$this->_limitTo || in_array($method, $this->_limitTo) || ($safeMode && in_array($method, ["anchor", "safeMode", "reference"]))) {
+				if (method_exists($this, $method)){
+					// backward compatibility handling without raising errors
+					if (in_array($method, ["anchor", "safeMode", "reference"])) $text = $this->$method($text, $safeMode);
+					else $text = $this->$method($text);
+				}
 			}
 		}
 		$text = $this->deescape($text); // should come after other stylings have been applied
@@ -408,27 +408,27 @@ class Markdown {
 				if (in_array($match[1], $_references)) return $match[1]; // avoid duplication of link creation from references
 
 				// markdown linking, allow internal links
-				if (isset($match[3]) && str_starts_with($match[3], '#')) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[3]) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				if (isset($match[4]) && str_starts_with($match[4], '#')) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[4]) . '" class="eol1_md">' . $unescapedCode($match[3]) . '</a>';
 
 				if ($safeMode) return $unescapedCode($match[0]);
 
 				// auto linking with protocols
-				if ($match[1]) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[1]) . '" class="eol1_md">' . $unescapedCode($match[1]) . '</a>';
+				if ($match[1]) return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $match[1]) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
 				//markdown linking
 				$url = '';
-				if (str_starts_with($match[3], 'javascript:')) $url = $match[3];
+				if (str_starts_with($match[4], 'javascript:')) $url = $match[4];
 				else {
-					$component = parse_url($match[3]);
+					$component = parse_url($match[4]);
 					if (isset($component['query'])){
 						parse_str($component['query'], $query);
-						$url = substr($match[3], 0, strpos($match[3], '?')) . '?' . http_build_query($query);
+						$url = substr($match[4], 0, strpos($match[4], '?')) . '?' . http_build_query($query);
 					}
-					else $url = $match[3];
+					else $url = $match[4];
 					//$url .= '" target="_blank';
 				}
-				if (isset($match[4]) && $match[4]) $url .= '" title="' . substr($match[4], 2, -1);
+				if (isset($match[5]) && $match[5]) $url .= '" title="' . substr($match[5], 2, -1);
 
-				return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $url) . '" class="eol1_md">' . $unescapedCode($match[2]) . '</a>';
+				return '<a href="' . preg_replace('/[\-\+]/', '\\\\$0', $url) . '" class="eol1_md">' . $unescapedCode($match[3]) . '</a>';
 			},
 			$content);
 	}
@@ -736,30 +736,6 @@ class Markdown {
 			$content = $this->nested_blocks($content);
 		}
 		return $content;
-	}
-
-	/**
-	 * replace email adresses with mailto link unless in safeMode
-	 * encoded by default
-	 * 
-	 * @param string $content
-	 * @param bool $safeMode
-	 * @return string
-	 */
-	private function mailto($content, $safeMode){
-		return preg_replace_callback($this->_mailto,
-			function($match) use ($safeMode){
-				if($safeMode) return str_replace('_', '\_', $this->escapeHtml(($match[0])));
-
-				$encoded_email = '';
-				for ($a = 0, $b = strlen($match[0]); $a < $b; $a++)
-				{
-					$encoded_email .= '&#' . (mt_rand(0, 1) == 0  ? 'x' . dechex(ord($match[0][$a])) : ord($match[0][$a])) . ';';
-				}
-				return '<a href="mailto:' . $encoded_email . '">' . $encoded_email . '</a>';
-			},
-			$content
-		);
 	}
 
 	/**

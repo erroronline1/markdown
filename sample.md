@@ -43,7 +43,7 @@ a phone number: tel:012345678
 [Styled link to markdown information](https://www.markdownguide.org)  
 <http://some.other.url> with brackets  
 [urlencoded link with title](http://some.url?test2=2&test3=a=(/bcdef "some title") and [javascript: protocol](javascript:alert('hello there'))  
-some@mail.address converted to mailto: and an escaped\@mail.address  
+mailto:some@mail.address converted with mailto-protocol and without@mailto.protocol  
 ![an image](https://github.com/erroronline1/caro/raw/master/media/favicon/icon72.png) if loadable  
 
 ### Internal references (h3 header)

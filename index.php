@@ -23,7 +23,6 @@ $methods = [
 		"table",
 		"image", // prior to anchor for properly linkable images
 		"anchor", // safeMode can not render anchors to avoid malicious scripts
-		"mailto", // safeMode can not render anchors to avoid malicious scripts
 		"task",
 		"mark",
 		"strikethrough",
