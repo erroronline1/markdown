@@ -7,6 +7,14 @@
 My markdown parser from scratch  
 supposed to match [GitHub-flavoured](https://github.github.com/gfm/), [basic](https://markdownguide.offshoot.io/basic-syntax/) and [extended](https://www.markdownguide.org/extended-syntax) Markdown sytax to a reasonable amount
 
+# This project has moved
+
+This repository is now maintained at
+[codeberg.org/erroronline1/markdown](https://codeberg.org/erroronline1/markdown).
+
+This GitHub mirror may be out of date. Please file issues and
+contributions on Codeberg.
+
 ## But why another?
 This parser originates from [another of my projects](https://github.com/erroronline1/caro). This project has high concerns on privacy and data integrity, so I tried to create myself what I have been able to. Don't trust a framework/library you didn't create yourself.
 
